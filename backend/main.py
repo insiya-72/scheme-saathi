@@ -1,9 +1,13 @@
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env from project root
-ROOT_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(ROOT_DIR / ".env")
+# Robustly load .env from backend dir, project root, or cwd
+BASE_DIR = Path(__file__).resolve().parent
+ROOT_DIR = BASE_DIR.parent
+
+for env_file in [BASE_DIR / ".env", ROOT_DIR / ".env", Path.cwd() / ".env"]:
+    if env_file.exists():
+        load_dotenv(env_file, override=True)
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -16,6 +20,8 @@ from routes.ai_assistant import router as ai_router
 from routes.emi_calculator import router as emi_router
 from routes.channel_partner import router as partner_router
 from routes.locations import router as locations_router
+from routes.documents import router as documents_router
+from routes.applications import router as applications_router
 
 
 @asynccontextmanager
@@ -85,3 +91,5 @@ app.include_router(ai_router)
 app.include_router(emi_router)
 app.include_router(partner_router)
 app.include_router(locations_router)
+app.include_router(documents_router)
+app.include_router(applications_router)

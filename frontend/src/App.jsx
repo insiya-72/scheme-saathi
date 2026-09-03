@@ -30,158 +30,64 @@ import {
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
-const SUPPORTED_LANGUAGES = [
-  { code: "en", display: "English" },
-  { code: "hi", display: "हिन्दी (Hindi)" },
-  { code: "bn", display: "বাংলা (Bengali)" },
-  { code: "ta", display: "தமிழ் (Tamil)" },
-  { code: "te", display: "తెలుగు (Telugu)" },
-  { code: "mr", display: "मराठी (Marathi)" },
-  { code: "gu", display: "ગુજરાતી (Gujarati)" },
-  { code: "kn", display: "ಕನ್ನಡ (Kannada)" },
-  { code: "ml", display: "മലയാളം (Malayalam)" },
-  { code: "pa", display: "ਪੰਜਾਬੀ (Punjabi)" },
-  { code: "or", display: "ଓଡ଼ିଆ (Odia)" },
-  { code: "as", display: "অসমীয়া (Assamese)" },
-  { code: "ur", display: "اردو (Urdu)" },
-  { code: "ne", display: "नेपाली (Nepali)" },
-  { code: "sa", display: "संस्कृत (Sanskrit)" },
-  { code: "mai", display: "मैथिली (Maithili)" },
-  { code: "sat", display: "ᱥᱟᱱᱛᱟᱲᱤ (Santali)" },
-  { code: "sd", display: "سنڌي (Sindhi)" },
-  { code: "brx", display: "बड़ो (Bodo)" },
-  { code: "doi", display: "डोगरी (Dogri)" },
-  { code: "ks", display: "कॉशुर (Kashmiri)" },
-  { code: "kok", display: "कोंकणी (Konkani)" },
-  { code: "mni", display: "মৈতৈলোন (Manipuri)" },
-];
+import {
+  SUPPORTED_LANGUAGES,
+  t,
+  isRTL,
+} from "./i18n/translations";
+import {
+  getPrimarySchemes,
+  getLocalizedSchemeName,
+} from "./i18n/schemeData";
+import DocumentCenter from "./components/DocumentCenter.jsx";
+import ApplicationTracking from "./components/ApplicationTracking.jsx";
 
-const AI_LANGUAGES = SUPPORTED_LANGUAGES;
+function LanguageSelector({ currentLanguage = "en", onLanguageChange }) {
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const activeLangObj =
+    SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage) ||
+    SUPPORTED_LANGUAGES[0];
 
-const UI_TRANSLATIONS = {
-  en: {
-    tagline: "Your Government Scheme Companion",
-    home: "Home",
-    exploreSchemes: "Explore Schemes",
-    calculator: "Calculator",
-    partnerLocator: "Partner Locator",
-    documents: "Documents",
-    trackApplication: "Track Application",
-    aiAssistant: "AI Assistant",
-    signIn: "Sign In",
-    logout: "Logout",
-    findMyScheme: "Find My Scheme",
-    heroTitle: "Find the right government scheme for your next step.",
-    heroSubtitle: "Discover suitable schemes, calculate loan details, and connect with the right partners — all in one place.",
-    viewMyRecommendations: "View My Recommendations",
-    openCalculator: "Open Calculator",
-  },
-  hi: {
-    tagline: "आपका सरकारी योजना साथी",
-    home: "होम",
-    exploreSchemes: "योजनाएं देखें",
-    calculator: "कैलकुलेटर",
-    partnerLocator: "पार्टनर लोकेटर",
-    documents: "दस्तावेज़",
-    trackApplication: "आवेदन ट्रैक करें",
-    aiAssistant: "एआई सहायक",
-    signIn: "साइन इन",
-    logout: "लॉग आउट",
-    findMyScheme: "मेरी योजना खोजें",
-    heroTitle: "अपने अगले कदम के लिए सही सरकारी योजना खोजें।",
-    heroSubtitle: "उपयुक्त योजनाएं खोजें, ऋण विवरण की गणना करें और सही भागीदारों से जुड़ें — सब एक ही स्थान पर।",
-    viewMyRecommendations: "मेरी सिफारिशें देखें",
-    openCalculator: "कैलकुलेटर खोलें",
-  },
-  bn: {
-    tagline: "আপনার সরকারি স্কিম সঙ্গী",
-    home: "হোম",
-    exploreSchemes: "স্কিম অন্বেষণ করুন",
-    calculator: "ক্যালকুলেটর",
-    partnerLocator: "পার্টনার লোকেটার",
-    documents: "নথিপত্র",
-    trackApplication: "আবেদন ট্র্যাক করুন",
-    aiAssistant: "এআই সহকারী",
-    signIn: "সাইন ইন",
-    logout: "লগ আউট",
-    findMyScheme: "আমার স্কিম খুঁজুন",
-    heroTitle: "আপনার পরবর্তী পদক্ষেপের জন্য সঠিক সরকারি স্কিম খুঁজুন।",
-    heroSubtitle: "উপযুক্ত স্কিম আবিষ্কার করুন, ঋণের বিবরণ গণনা করুন এবং সঠিক অংশীদারদের সাথে সংযোগ করুন — সবই এক জায়গায়।",
-    viewMyRecommendations: "আমার সুপারিশ দেখুন",
-    openCalculator: "ক্যালকুলেটর খুলুন",
-  },
-  ta: {
-    tagline: "உங்கள் அரசு திட்டத் தோழன்",
-    home: "முகப்பு",
-    exploreSchemes: "திட்டங்களை ஆராயுங்கள்",
-    calculator: "கணிப்பான்",
-    partnerLocator: "பங்குதாரர் கண்டறிப்பான்",
-    documents: "ஆவணங்கள்",
-    trackApplication: "விண்ணப்பத்தைக் கண்காணிக்கவும்",
-    aiAssistant: "AI உதவியாளர்",
-    signIn: "உள்நுழைக",
-    logout: "வெளியேறு",
-    findMyScheme: "என் திட்டத்தைக் கண்டுபிடி",
-    heroTitle: "உங்கள் அடுத்த கட்டத்திற்கான சரியான அரசு திட்டத்தைக் கண்டறியவும்.",
-    heroSubtitle: "பொருத்தமான திட்டங்களைக் கண்டறியவும், கடன் விவரங்களைக் கணக்கிடவும், சரியான கூட்டாளர்களுடன் இணையவும் — அனைத்தும் ஒரே இடத்தில்.",
-    viewMyRecommendations: "என் பரிந்துரைகளைக் காண்க",
-    openCalculator: "கணிப்பானைத் திறக்கவும்",
-  },
-  te: {
-    tagline: "మీ ప్రభుత్వ పథకాల సహచరుడు",
-    home: "హోమ్",
-    exploreSchemes: "పథకాలను అన్వేషించండి",
-    calculator: "కాలిక్యులేటర్",
-    partnerLocator: "భాగస్వామి లొకేటర్",
-    documents: "పత్రాలు",
-    trackApplication: "దరఖాస్తును ట్రాక్ చేయండి",
-    aiAssistant: "AI సహాయకుడు",
-    signIn: "సైన్ ఇన్",
-    logout: "లాగ్ అవుట్",
-    findMyScheme: "నా పథకాన్ని కనుగొనండి",
-    heroTitle: "మీ తదుపరి అడుగు కోసం సరైన ప్రభుత్వ పథకాన్ని కనుగొనండి.",
-    heroSubtitle: "తగిన పథకాలను కనుగొనండి, రుణ వివరాలను లెక్కించండి మరియు సరైన భాగస్వాములతో కనెక్ట్ అవ్వండి — అన్నీ ఒకే చోట.",
-    viewMyRecommendations: "నా సిఫార్సులను వీక్షించండి",
-    openCalculator: "కాలిక్యులేటర్‌ను తెరవండి",
-  },
-  mr: {
-    tagline: "तुमचा सरकारी योजना साथीदार",
-    home: "मुख्यपृष्ठ",
-    exploreSchemes: "योजना शोधा",
-    calculator: "कॅल्क्युलेटर",
-    partnerLocator: "पार्टनर लोकेटर",
-    documents: "कागदपत्रे",
-    trackApplication: "अर्ज ट्रॅक करा",
-    aiAssistant: "एआय सहाय्यक",
-    signIn: "साइन इन करा",
-    logout: "बाहेर पडा",
-    findMyScheme: "माझी योजना शोधा",
-    heroTitle: "तुमच्या पुढच्या पावलासाठी योग्य सरकारी योजना शोधा.",
-    heroSubtitle: "योग्य योजना शोधा, कर्जाचा तपशील मोजा आणि योग्य भागीदारांशी जोडा — सर्व एकाच ठिकाणी.",
-    viewMyRecommendations: "माझ्या शिफारसी पहा",
-    openCalculator: "कॅल्क्युलेटर उघडा",
-  },
-  gu: {
-    tagline: "તમારો સરકારી યોજના સાથી",
-    home: "હોમ",
-    exploreSchemes: "યોજનાઓ શોધો",
-    calculator: "કેલ્ક્યુલેટર",
-    partnerLocator: "પાર્ટનર લોકેટર",
-    documents: "દસ્તાવેજો",
-    trackApplication: "અરજી ટ્રેક કરો",
-    aiAssistant: "AI સહાયક",
-    signIn: "સાઇન ઇન",
-    logout: "લૉગ આઉટ",
-    findMyScheme: "મારી યોજના શોધો",
-    heroTitle: "તમારા આગલા પગલા માટે યોગ્ય સરકારી યોજના શોધો.",
-    heroSubtitle: "યોગ્ય યોજનાઓ શોધો, લોનની વિગતોની ગણતરી કરો અને યોગ્ય ભાગીદારો સાથે જોડાઓ — બધું એક જ જગ્યાએ.",
-    viewMyRecommendations: "મારી ભલામણો જુઓ",
-    openCalculator: "કેલ્ક્યુલેટર ખોલો",
-  },
-};
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowLangMenu((prev) => !prev)}
+        className="flex items-center gap-2 rounded-lg border border-[#cfd8e3] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb]"
+        title="Select Language"
+        type="button"
+      >
+        <Globe2 size={14} />
+        <span>{activeLangObj?.display || "English"}</span>
+        <ChevronDown size={13} />
+      </button>
 
-function t(key, lang = "en") {
-  return UI_TRANSLATIONS[lang]?.[key] || UI_TRANSLATIONS.en[key] || key;
+      {showLangMenu && (
+        <div className="absolute right-0 top-full z-50 mt-1 max-h-[320px] w-[240px] overflow-y-auto rounded-xl border border-[#d5e0e7] bg-white shadow-xl">
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              type="button"
+              onClick={() => {
+                onLanguageChange?.(lang.code);
+                setShowLangMenu(false);
+              }}
+              className={[
+                "flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] transition hover:bg-[#f0f6fa]",
+                currentLanguage === lang.code
+                  ? "bg-[#eef7fb] font-bold text-[#145c91]"
+                  : "text-[#34475d]",
+              ].join(" ")}
+            >
+              {currentLanguage === lang.code && (
+                <span className="text-[#145c91] font-bold">✓</span>
+              )}
+              <span>{lang.display}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* =========================================================
@@ -683,13 +589,28 @@ function App() {
     }
   });
 
-  const handleLanguageChange = (lang) => {
-    setCurrentLanguage(lang);
+  useEffect(() => {
     try {
-      localStorage.setItem("scheme_saathi_lang", lang);
+      localStorage.setItem("scheme_saathi_lang", currentLanguage);
     } catch {
       // Ignore storage errors
     }
+    const rtl = isRTL(currentLanguage);
+    document.documentElement.dir = rtl ? "rtl" : "ltr";
+    document.documentElement.lang = currentLanguage;
+  }, [currentLanguage]);
+
+  const handleLanguageChange = (lang) => {
+    const validLang = String(lang || "en").toLowerCase().trim();
+    setCurrentLanguage(validLang);
+    try {
+      localStorage.setItem("scheme_saathi_lang", validLang);
+    } catch {
+      // Ignore storage errors
+    }
+    const rtl = isRTL(validLang);
+    document.documentElement.dir = rtl ? "rtl" : "ltr";
+    document.documentElement.lang = validLang;
   };
 
   const [lastSchemeResults, setLastSchemeResults] = useState(() => {
@@ -753,6 +674,14 @@ function App() {
     setView("home");
   };
 
+  const [trackingAppNumber, setTrackingAppNumber] = useState("");
+  const [selectedApplyScheme, setSelectedApplyScheme] = useState(null);
+
+  const handleApplyScheme = (scheme) => {
+    setSelectedApplyScheme(scheme);
+    setView("tracking");
+  };
+
   return (
     <div className="min-h-screen bg-white text-[#10213f]">
       {view === "home" && (
@@ -775,9 +704,13 @@ function App() {
           onBack={() => setView("home")}
           onLogin={() => setView("login")}
           onFindScheme={openSchemeFinder}
+          onNavigate={(nextView) => setView(nextView)}
+          onApplyScheme={handleApplyScheme}
           isLoggedIn={isLoggedIn}
           currentUser={currentUser}
           onLogout={handleLogout}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
 
@@ -787,6 +720,8 @@ function App() {
           onBack={() => setView("home")}
           onLogin={handleLogin}
           onSignup={() => setView("signup")}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
 
@@ -796,6 +731,8 @@ function App() {
           onBack={() => setView("home")}
           onLogin={handleLogin}
           onSignupSuccess={handleLogin}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
 
@@ -806,18 +743,26 @@ function App() {
           initialResults={lastSchemeResults}
           initialFormData={lastSchemeFormData}
           onResultsReady={handleResultsReady}
+          onNavigate={(nextView) => setView(nextView)}
+          onApplyScheme={handleApplyScheme}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
 
       {view === "emi_calculator" && (
         <EMICalculator
           onBack={() => setView("home")}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
 
       {view === "partner_locator" && (
         <PartnerLocator
           onBack={() => setView("home")}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
 
@@ -829,7 +774,32 @@ function App() {
           currentUser={currentUser}
           lastSchemeResults={lastSchemeResults}
           lastSchemeFormData={lastSchemeFormData}
-          initialLanguage={currentLanguage}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
+        />
+      )}
+
+      {view === "documents" && (
+        <DocumentCenter
+          onBack={() => setView("home")}
+          onNavigate={(nextView) => setView(nextView)}
+          isLoggedIn={isLoggedIn}
+          currentUser={currentUser}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
+        />
+      )}
+
+      {view === "tracking" && (
+        <ApplicationTracking
+          onBack={() => setView("home")}
+          onNavigate={(nextView) => setView(nextView)}
+          isLoggedIn={isLoggedIn}
+          currentUser={currentUser}
+          initialAppNumber={trackingAppNumber}
+          initialScheme={selectedApplyScheme}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
     </div>
@@ -852,11 +822,6 @@ function LandingPage({
   currentLanguage = "en",
   onLanguageChange,
 }) {
-  const [showLangMenu, setShowLangMenu] = useState(false);
-  const activeLangObj =
-    SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage) ||
-    SUPPORTED_LANGUAGES[0];
-
   const topScheme = lastSchemeResults?.primary?.eligible?.[0] || null;
   const matchScore = topScheme?.match_score ?? null;
 
@@ -939,22 +904,14 @@ function LandingPage({
             </button>
 
             <button
-              onClick={() =>
-                alert(
-                  "Document Center will be connected after backend integration.",
-                )
-              }
+              onClick={() => onNavigate?.("documents")}
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
               {t("documents", currentLanguage)}
             </button>
 
             <button
-              onClick={() =>
-                alert(
-                  "Application Tracking will be connected after authentication and backend integration.",
-                )
-              }
+              onClick={() => onNavigate?.("tracking")}
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
               {t("trackApplication", currentLanguage)}
@@ -969,41 +926,10 @@ function LandingPage({
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <button
-                onClick={() => setShowLangMenu((prev) => !prev)}
-                className="hidden items-center gap-2 rounded-lg border border-[#cfd8e3] bg-white px-3.5 py-2.5 text-[13px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb] md:flex"
-              >
-                <Globe2 size={15} />
-                <span>{activeLangObj?.display || "English"}</span>
-                <ChevronDown size={14} />
-              </button>
-
-              {showLangMenu && (
-                <div className="absolute right-0 top-full z-50 mt-1 max-h-[320px] w-[240px] overflow-y-auto rounded-xl border border-[#d5e0e7] bg-white shadow-xl">
-                  {SUPPORTED_LANGUAGES.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => {
-                        onLanguageChange?.(lang.code);
-                        setShowLangMenu(false);
-                      }}
-                      className={[
-                        "flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] transition hover:bg-[#f0f6fa]",
-                        currentLanguage === lang.code
-                          ? "bg-[#eef7fb] font-bold text-[#145c91]"
-                          : "text-[#34475d]",
-                      ].join(" ")}
-                    >
-                      {currentLanguage === lang.code && (
-                        <span className="text-[#145c91] font-bold">✓</span>
-                      )}
-                      <span>{lang.display}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
+            />
 
             {isLoggedIn ? (
               <div className="flex items-center gap-2">
@@ -1050,16 +976,12 @@ function LandingPage({
                 />
 
                 <span className="text-[13px] font-semibold tracking-[0.12em] text-[#536275]">
-                  AI-POWERED SCHEME MATCHING
+                  {t("heroBadge", currentLanguage)}
                 </span>
               </div>
 
               <h2 className="max-w-[680px] font-serif text-[52px] font-bold leading-[1.08] tracking-[-0.02em] text-[#12365d] md:text-[62px]">
-                Find the right
-                <br />
-                government scheme
-                <br />
-                for your next step.
+                {t("heroTitle", currentLanguage)}
               </h2>
 
               <div className="my-7 flex items-center gap-3">
@@ -1069,12 +991,7 @@ function LandingPage({
               </div>
 
               <p className="max-w-[650px] text-[18px] leading-8 text-[#43566f]">
-                Discover suitable schemes,
-                calculate loan details,
-                <br className="hidden md:block" />
-                and connect with the
-                right partners — all in
-                one place.
+                {t("heroSubtitle", currentLanguage)}
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
@@ -1084,11 +1001,11 @@ function LandingPage({
                   }
                   className="group flex items-center gap-3 rounded-lg bg-[#145c91] px-7 py-4 text-[16px] font-semibold text-white shadow-lg shadow-[#145c91]/20 transition duration-200 hover:-translate-y-0.5 hover:bg-[#104d7b]"
                 >
-                  Find My Scheme
+                  {t("findMyScheme", currentLanguage)}
 
                   <ArrowRight
                     size={19}
-                    className="transition group-hover:translate-x-1"
+                    className="transition group-hover:translate-x-1 rtl:rotate-180"
                   />
                 </button>
 
@@ -1098,11 +1015,11 @@ function LandingPage({
                   }
                   className="group flex items-center gap-3 rounded-lg border-2 border-[#145c91] bg-white/80 px-7 py-4 text-[16px] font-semibold text-[#145c91] transition hover:bg-white"
                 >
-                  Explore Schemes
+                  {t("exploreSchemes", currentLanguage)}
 
                   <ArrowRight
                     size={19}
-                    className="transition group-hover:translate-x-1"
+                    className="transition group-hover:translate-x-1 rtl:rotate-180"
                   />
                 </button>
               </div>
@@ -1167,7 +1084,7 @@ function LandingPage({
                   <div className="grid grid-cols-[0.95fr_1.15fr] gap-5">
                     <div className="flex min-h-[230px] flex-col items-center justify-center border-r border-[#d4dbe1] pr-5">
                       <p className="text-[12px] font-semibold text-[#37485a]">
-                        Match Score
+                        {t("matchScore", currentLanguage)}
                       </p>
 
                       <MatchScoreDisplay
@@ -1241,7 +1158,7 @@ function LandingPage({
 
                     <div>
                       <p className="text-[11px] text-[#748396]">
-                        Max Loan
+                        {t("maxLoan", currentLanguage)}
                       </p>
 
                       <p className="mt-1 font-bold text-[#17263b]">
@@ -1251,7 +1168,7 @@ function LandingPage({
 
                     <div>
                       <p className="text-[11px] text-[#748396]">
-                        Interest Rate
+                        {t("interestRate", currentLanguage)}
                       </p>
 
                       <p className="mt-1 font-bold text-[#17263b]">
@@ -1270,6 +1187,7 @@ function LandingPage({
                   {t("viewMyRecommendations", currentLanguage)}
                   <ArrowRight
                     size={18}
+                    className="rtl:rotate-180"
                   />
                 </button>
               </div>
@@ -1436,6 +1354,7 @@ function LandingPage({
                 {t("openCalculator", currentLanguage)}
                 <ArrowRight
                   size={18}
+                  className="rtl:rotate-180"
                 />
               </button>
             </div>
@@ -1464,9 +1383,10 @@ function LandingPage({
               }
               className="flex shrink-0 items-center gap-3 rounded-lg bg-[#145c91] px-7 py-4 font-semibold text-white shadow-md transition hover:bg-[#104d7b]"
             >
-              Find My Scheme
+              {t("findMyScheme", currentLanguage)}
               <ArrowRight
                 size={19}
+                className="rtl:rotate-180"
               />
             </button>
           </div>
@@ -1492,179 +1412,15 @@ function LandingPage({
    EXPLORE SCHEMES DATA
 ========================================================= */
 
-const PRIMARY_SCHEMES = [
-  {
-    code: "MFS",
-    title: "Micro Finance Scheme",
-    rate: "6.5% p.a.",
-    limit: "Project cost up to ₹1.40 lakh",
-    loan: "Loan up to ₹1.25 lakh",
+const SCHEME_ICONS = {
+  MFS: <Sparkles size={23} />,
+  AMY: <UserRound size={23} />,
+  TL: <Calculator size={23} />,
+  UNY: <Bot size={23} />,
+  ELS: <FileText size={23} />,
+};
 
-    eligibility: [
-      "Scheduled Caste (SC) applicant",
-      "Valid caste certificate required",
-      "Annual family income up to ₹5 lakh",
-      "Eligible small income-generating activity",
-    ],
-
-    documents: [
-      "Valid caste certificate",
-      "Income proof",
-      "Identity / KYC documents",
-      "Address proof",
-      "Activity / project-related documents",
-    ],
-
-    route: "SCAs / CAs",
-
-    description:
-      "Concessional financing for eligible small income-generating activities.",
-
-    icon: (
-      <Sparkles size={23} />
-    ),
-  },
-
-  {
-    code: "AMY",
-    title:
-      "Aajeevika Micro-Finance Yojana",
-    rate: "15% p.a.",
-    limit: "Project cost up to ₹1.40 lakh",
-    loan: "Loan up to ₹1.25 lakh",
-
-    eligibility: [
-      "Scheduled Caste (SC) applicant",
-      "Valid caste certificate required",
-      "Annual family income up to ₹5 lakh",
-      "Eligible small / micro business activity",
-    ],
-
-    documents: [
-      "Valid caste certificate",
-      "Income proof",
-      "Identity / KYC documents",
-      "Address proof",
-      "Business / activity documents",
-    ],
-
-    route: "Selected NBFC-MFIs",
-
-    description:
-      "Micro-finance support for eligible SC applicants through participating NBFC-MFIs.",
-
-    icon: (
-      <UserRound size={23} />
-    ),
-  },
-
-  {
-    code: "TL",
-    title: "Term Loan",
-    rate: "8% p.a.",
-    limit:
-      "Project cost above ₹1.40 lakh up to ₹50 lakh",
-    loan: "Loan up to ₹45 lakh",
-
-    eligibility: [
-      "Scheduled Caste (SC) applicant",
-      "Valid caste certificate required",
-      "Annual family income up to ₹5 lakh",
-      "For eligible larger income-generating projects",
-      "Suitable for self-employment / business expansion",
-    ],
-
-    documents: [
-      "Valid caste certificate",
-      "Income proof",
-      "Identity / KYC documents",
-      "Address proof",
-      "Detailed project report / business documents",
-      "Quotations / cost estimates where applicable",
-    ],
-
-    route: "SCAs / CAs",
-
-    description:
-      "Longer-term financing for larger eligible income-generating projects.",
-
-    icon: (
-      <Calculator
-        size={23}
-      />
-    ),
-  },
-
-  {
-    code: "UNY",
-    title: "Udyam Nidhi Yojana",
-    rate: "13%–15% p.a.",
-    limit: "Project cost up to ₹5 lakh",
-    loan: "Loan up to ₹4.50 lakh",
-
-    eligibility: [
-      "Scheduled Caste (SC) applicant",
-      "Valid caste certificate required",
-      "Annual family income up to ₹5 lakh",
-      "Eligible small / micro activity",
-      "Entrepreneurship-oriented financing",
-    ],
-
-    documents: [
-      "Valid caste certificate",
-      "Income proof",
-      "Identity / KYC documents",
-      "Address proof",
-      "Business / activity documents",
-      "Project / cost estimate",
-    ],
-
-    route:
-      "Cooperative Societies / Cooperative Banks / SFBs",
-
-    description:
-      "Financing support for eligible small activities and entrepreneurship.",
-
-    icon: <Bot size={23} />,
-  },
-
-  {
-    code: "ELS",
-    title: "Educational Loan Scheme",
-    rate: "6.5% p.a.",
-    limit: "Loan up to ₹40 lakh",
-    loan:
-      "Up to 90% of course fee, subject to scheme limit",
-
-    eligibility: [
-      "Scheduled Caste (SC) applicant",
-      "Valid caste certificate required",
-      "Annual family income up to ₹5 lakh",
-      "Regular / full-time professional or technical study",
-      "Recognized institution in India or abroad",
-    ],
-
-    documents: [
-      "Valid caste certificate",
-      "Income proof",
-      "Identity / KYC documents",
-      "Admission / offer letter",
-      "Course fee structure",
-      "Institution / course documents",
-    ],
-
-    route: "SCAs / CAs",
-
-    description:
-      "Educational financing for eligible professional and technical studies.",
-
-    icon: (
-      <FileText
-        size={23}
-      />
-    ),
-  },
-];
+const PRIMARY_SCHEMES = getPrimarySchemes("en");
 
 /* =========================================================
    EXPLORE SCHEMES
@@ -1674,10 +1430,16 @@ function ExploreSchemes({
   onBack,
   onLogin,
   onFindScheme,
+  onNavigate,
+  onApplyScheme,
   isLoggedIn,
   currentUser,
   onLogout,
+  currentLanguage = "en",
+  onLanguageChange,
 }) {
+  const schemes = getPrimarySchemes(currentLanguage);
+
   return (
     <div className="min-h-screen bg-[#f5f9fc]">
       <header className="border-b border-[#dce4ec] bg-white">
@@ -1689,7 +1451,7 @@ function ExploreSchemes({
             <ArrowLeft
               size={18}
             />
-            Back to Home
+            {t("backToHome", currentLanguage)}
           </button>
 
           <div className="flex items-center gap-3">
@@ -1707,21 +1469,22 @@ function ExploreSchemes({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="hidden text-xs font-semibold text-[#718096] sm:block">
-              Public Scheme Explorer
-            </span>
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
+            />
 
             {isLoggedIn ? (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 rounded-lg bg-[#eef7fb] px-3.5 py-1.5 text-[12px] font-semibold text-[#145c91]">
                   <UserRound size={14} />
-                  <span>{currentUser?.name || "Account"}</span>
+                  <span>{currentUser?.name || t("account", currentLanguage)}</span>
                 </div>
                 <button
                   onClick={onLogout}
                   className="rounded-lg border border-[#cfd8e3] px-3 py-1.5 text-[12px] font-semibold text-[#52677d] transition hover:bg-[#f5f8fb] hover:text-[#c53030]"
                 >
-                  Logout
+                  {t("logout", currentLanguage)}
                 </button>
               </div>
             ) : (
@@ -1730,7 +1493,7 @@ function ExploreSchemes({
                 className="flex items-center gap-1.5 rounded-lg border border-[#cfd8e3] px-3.5 py-1.5 text-[12px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb]"
               >
                 <LogIn size={14} />
-                Sign In
+                {t("signIn", currentLanguage)}
               </button>
             )}
           </div>
@@ -1740,16 +1503,15 @@ function ExploreSchemes({
       <main className="mx-auto max-w-[1200px] px-6 py-12">
         <div className="max-w-3xl">
           <p className="text-[11px] font-bold tracking-[0.16em] text-[#1769a8]">
-            EXPLORE SCHEMES
+            {t("exploreSchemes", currentLanguage).toUpperCase()}
           </p>
 
           <h1 className="mt-3 font-serif text-4xl font-bold text-[#172a43] md:text-5xl">
-            Explore government credit options.
+            {t("exploreTitle", currentLanguage)}
           </h1>
 
           <p className="mt-4 text-base leading-7 text-[#66788d]">
-            Browse the primary Scheme Saathi scope without creating an
-            account. Personalized eligibility matching requires sign-in.
+            {t("exploreSubtitle", currentLanguage)}
           </p>
         </div>
 
@@ -1757,27 +1519,35 @@ function ExploreSchemes({
           <div className="mb-6 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold tracking-[0.16em] text-[#7b8998]">
-                PRIMARY
+                {t("primaryEyebrow", currentLanguage)}
               </p>
 
               <h2 className="mt-1 font-serif text-2xl font-bold text-[#20344b]">
-                PS-Core Schemes
+                {t("coreSchemesTitle", currentLanguage)}
               </h2>
             </div>
 
             <span className="rounded-full border border-[#d5e0e7] bg-white px-4 py-2 text-[11px] font-bold text-[#637589]">
-              5 CORE SCHEMES
+              {t("coreSchemesBadge", currentLanguage)}
             </span>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {PRIMARY_SCHEMES.map(
+            {schemes.map(
               (scheme) => (
                 <SchemeCard
                   key={
                     scheme.code
                   }
                   {...scheme}
+                  icon={
+                    SCHEME_ICONS[scheme.code] || (
+                      <Sparkles size={23} />
+                    )
+                  }
+                  currentLanguage={currentLanguage}
+                  onApply={onApplyScheme}
+                  onNavigate={onNavigate}
                 />
               ),
             )}
@@ -1787,11 +1557,11 @@ function ExploreSchemes({
         <section className="mt-14">
           <div className="mb-6">
             <p className="text-[11px] font-bold tracking-[0.16em] text-[#7b8998]">
-              SECONDARY
+              {t("secondaryEyebrow", currentLanguage)}
             </p>
 
             <h2 className="mt-1 font-serif text-2xl font-bold text-[#20344b]">
-              Related / Connected Support
+              {t("connectedSupportTitle", currentLanguage)}
             </h2>
           </div>
 
@@ -1805,50 +1575,47 @@ function ExploreSchemes({
 
               <div>
                 <h3 className="font-serif text-xl font-bold text-[#23384f]">
-                  VISVAS — Connected Interest Support
+                  {t("visvasTitle", currentLanguage)}
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-[#718096]">
-                  Eligible SC, OBC and Safai Karamchari individual
-                  beneficiaries may receive interest subvention support,
-                  subject to the separate VISVAS eligibility conditions.
+                  {t("visvasDesc", currentLanguage)}
                 </p>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   <div className="rounded-lg bg-[#f7fafc] p-3">
                     <p className="text-[10px] text-[#84919d]">
-                      Interest Support
+                      {t("interestSupport", currentLanguage)}
                     </p>
 
                     <p className="mt-1 text-sm font-bold text-[#145c91]">
-                      Up to 5%
+                      {t("visvasInterestValue", currentLanguage)}
                     </p>
                   </div>
 
                   <div className="rounded-lg bg-[#f7fafc] p-3">
                     <p className="text-[10px] text-[#84919d]">
-                      Individual Loan
+                      {t("individualLoan", currentLanguage)}
                     </p>
 
                     <p className="mt-1 text-sm font-bold text-[#263b52]">
-                      Up to ₹5 lakh
+                      {t("visvasLoanValue", currentLanguage)}
                     </p>
                   </div>
 
                   <div className="rounded-lg bg-[#f7fafc] p-3">
                     <p className="text-[10px] text-[#84919d]">
-                      Route
+                      {t("route", currentLanguage)}
                     </p>
 
                     <p className="mt-1 text-sm font-bold text-[#263b52]">
-                      Lending Institutions
+                      {t("lendingInstitutions", currentLanguage)}
                     </p>
                   </div>
                 </div>
 
                 <p className="mt-4 text-[10px] leading-5 text-[#8a7b62]">
-                  VISVAS is shown as connected support and is not treated
-                  as one of the five primary NSFDC scheme recommendations.
+                  {t("visvasDisclaimer", currentLanguage)}
                 </p>
               </div>
             </div>
@@ -1859,13 +1626,13 @@ function ExploreSchemes({
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div>
               <p className="text-[11px] font-bold tracking-[0.15em] text-[#1769a8]">
-                WANT PERSONALIZED RESULTS?
+                {t("wantPersonalized", currentLanguage)}
               </p>
 
               <h2 className="mt-2 font-serif text-2xl font-bold text-[#1c334c]">
                 {isLoggedIn
-                  ? "Find schemes matched to your personal profile."
-                  : "Sign in to find schemes matched to your profile."}
+                  ? t("findMatchedSchemes", currentLanguage)
+                  : t("signInMatchedSchemes", currentLanguage)}
               </h2>
             </div>
 
@@ -1873,9 +1640,10 @@ function ExploreSchemes({
               onClick={isLoggedIn ? onFindScheme : onLogin}
               className="flex items-center gap-2 rounded-lg bg-[#145c91] px-6 py-3.5 font-semibold text-white transition hover:bg-[#104d7b]"
             >
-              {isLoggedIn ? "Find My Scheme" : "Sign In & Continue"}
+              {isLoggedIn ? t("findMyScheme", currentLanguage) : t("signIn", currentLanguage)}
               <ArrowRight
                 size={18}
+                className="rtl:rotate-180"
               />
             </button>
           </div>
@@ -1895,6 +1663,8 @@ function AuthPage({
   onLogin,
   onSignup,
   onSignupSuccess,
+  currentLanguage = "en",
+  onLanguageChange,
 }) {
   const [authMode, setAuthMode] =
     useState(mode);
@@ -2117,7 +1887,7 @@ function AuthPage({
             <ArrowLeft
               size={18}
             />
-            Back to Home
+            {t("backToHome", currentLanguage)}
           </button>
 
           <div className="flex items-center gap-3">
@@ -2140,11 +1910,17 @@ function AuthPage({
             </div>
           </div>
 
-          <div className="hidden items-center gap-2 text-xs font-semibold text-[#718096] sm:flex">
-            <LockKeyhole
-              size={15}
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
             />
-            Secure sign-in
+            <div className="hidden items-center gap-2 text-xs font-semibold text-[#718096] sm:flex">
+              <LockKeyhole
+                size={15}
+              />
+              Secure sign-in
+            </div>
           </div>
         </div>
       </header>
@@ -2402,8 +2178,8 @@ function AuthPage({
                       <span>
                         {authMode ===
                         "login"
-                          ? "Sign In"
-                          : "Create Account"}
+                          ? t("submitSignIn", currentLanguage)
+                          : t("submitSignUp", currentLanguage)}
                       </span>
                       <ArrowRight
                         size={18}
@@ -2438,7 +2214,7 @@ function AuthPage({
                   }}
                   className="w-full rounded-lg border border-[#cfdbe3] px-5 py-3.5 text-sm font-semibold text-[#38506a] transition hover:bg-[#f7fafc]"
                 >
-                  Don't have an account? Create one
+                  {t("dontHaveAccount", currentLanguage)}
                 </button>
               ) : (
                 <button
@@ -2451,7 +2227,7 @@ function AuthPage({
                   }}
                   className="w-full rounded-lg border border-[#cfdbe3] px-5 py-3.5 text-sm font-semibold text-[#38506a] transition hover:bg-[#f7fafc]"
                 >
-                  Already have an account? Sign in
+                  {t("alreadyHaveAccount", currentLanguage)}
                 </button>
               )}
 
@@ -2485,6 +2261,10 @@ function SchemeFinder({
   initialResults,
   initialFormData,
   onResultsReady,
+  onNavigate,
+  onApplyScheme,
+  currentLanguage = "en",
+  onLanguageChange,
 }) {
   const [step, setStep] =
     useState(1);
@@ -2569,7 +2349,7 @@ function SchemeFinder({
       if (!formData.category) {
         setLoading(false);
         setError(
-          "Please select your category before finding schemes.",
+          t("valCategory", currentLanguage)
         );
         return;
       }
@@ -2577,7 +2357,7 @@ function SchemeFinder({
       if (!formData.gender) {
         setLoading(false);
         setError(
-          "Please select your gender before finding schemes.",
+          t("valGender", currentLanguage)
         );
         return;
       }
@@ -2585,7 +2365,7 @@ function SchemeFinder({
       if (!formData.annualIncome) {
         setLoading(false);
         setError(
-          "Please enter your annual family income before finding schemes.",
+          t("valIncome", currentLanguage)
         );
         return;
       }
@@ -2593,7 +2373,7 @@ function SchemeFinder({
       if (!formData.purpose) {
         setLoading(false);
         setError(
-          "Please select your requirement before finding schemes.",
+          t("valRequirement", currentLanguage)
         );
         return;
       }
@@ -2745,11 +2525,11 @@ function SchemeFinder({
     "education";
 
   const stepTitles = [
-    "About You",
-    "Your Requirement",
-    "Project / Education",
-    "Financial Profile",
-    "Review",
+    t("stepAboutYou", currentLanguage),
+    t("stepRequirement", currentLanguage),
+    t("stepProjectEducation", currentLanguage),
+    t("stepFinancialProfile", currentLanguage),
+    t("stepReview", currentLanguage),
   ];
 
   const progress =
@@ -2765,18 +2545,18 @@ function SchemeFinder({
           />
 
           <h2 className="mt-4 font-serif text-2xl font-bold text-[#172a43]">
-            Login required
+            {t("loginRequired", currentLanguage)}
           </h2>
 
           <p className="mt-2 text-sm text-[#718096]">
-            Please sign in before starting personalized scheme matching.
+            {t("loginRequiredDesc", currentLanguage)}
           </p>
 
           <button
             onClick={onBack}
             className="mt-6 rounded-lg bg-[#145c91] px-6 py-3 text-sm font-bold text-white"
           >
-            Back to Home
+            {t("backToHome", currentLanguage)}
           </button>
         </div>
       </div>
@@ -2788,6 +2568,8 @@ function SchemeFinder({
       <SchemeResults
         results={results}
         formData={formData}
+        currentLanguage={currentLanguage}
+        onLanguageChange={onLanguageChange}
         onBack={() => {
           setResults(null);
           setStep(5);
@@ -2815,7 +2597,7 @@ function SchemeFinder({
             <ArrowLeft
               size={18}
             />
-            Back to Home
+            {t("backToHome", currentLanguage)}
           </button>
 
           <div className="hidden items-center gap-3 sm:flex">
@@ -2833,16 +2615,20 @@ function SchemeFinder({
               </p>
 
               <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#8090a0]">
-                Scheme Finder
+                {t("findMyScheme", currentLanguage)}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#64758a]">
-            <LockKeyhole
-              size={15}
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
             />
-            Signed-in profile
+            <div className="hidden items-center gap-2 text-xs font-semibold text-[#64758a] sm:flex">
+              <LockKeyhole size={15} />
+              {t("signedInProfile", currentLanguage)}
+            </div>
           </div>
         </div>
       </header>
@@ -2852,14 +2638,14 @@ function SchemeFinder({
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1769a8]">
-                STEP{" "}
+                {t("stepLabel", currentLanguage)}{" "}
                 {String(
                   step,
                 ).padStart(
                   2,
                   "0",
                 )}{" "}
-                OF 05
+                {t("ofFive", currentLanguage)}
               </p>
 
               <h1 className="mt-1 font-serif text-2xl font-bold text-[#172a43]">
@@ -2874,7 +2660,7 @@ function SchemeFinder({
             <div className="w-full md:w-[360px]">
               <div className="mb-2 flex justify-between text-[11px] font-semibold text-[#7c8998]">
                 <span>
-                  Your progress
+                  {t("yourProgress", currentLanguage)}
                 </span>
 
                 <span>
@@ -2972,6 +2758,7 @@ function SchemeFinder({
               updateField={
                 updateField
               }
+              currentLanguage={currentLanguage}
             />
           )}
 
@@ -2984,6 +2771,7 @@ function SchemeFinder({
               updateField={
                 updateField
               }
+              currentLanguage={currentLanguage}
             />
           )}
 
@@ -3002,6 +2790,7 @@ function SchemeFinder({
               isEducation={
                 isEducation
               }
+              currentLanguage={currentLanguage}
             />
           )}
 
@@ -3014,6 +2803,7 @@ function SchemeFinder({
               updateField={
                 updateField
               }
+              currentLanguage={currentLanguage}
             />
           )}
 
@@ -3023,6 +2813,7 @@ function SchemeFinder({
               formData={
                 formData
               }
+              currentLanguage={currentLanguage}
             />
           )}
 
@@ -3035,7 +2826,7 @@ function SchemeFinder({
 
               <div>
                 <p className="font-bold">
-                  Scheme matching failed
+                  {t("matchingFailed", currentLanguage)}
                 </p>
 
                 <p className="mt-1 leading-5">
@@ -3046,7 +2837,7 @@ function SchemeFinder({
                   "Please",
                 ) && (
                   <p className="mt-2 text-xs text-[#9b6666]">
-                    Make sure the FastAPI backend is running on port 8000.
+                    {t("checkBackendRunning", currentLanguage)}
                   </p>
                 )}
               </div>
@@ -3072,7 +2863,7 @@ function SchemeFinder({
               <ArrowLeft
                 size={17}
               />
-              Back
+              {t("back", currentLanguage)}
             </button>
 
             {step <
@@ -3083,7 +2874,7 @@ function SchemeFinder({
                 }
                 className="flex items-center justify-center gap-2 rounded-lg bg-[#145c91] px-7 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#104d7b]"
               >
-                Continue
+                {t("continue", currentLanguage)}
                 <ArrowRight
                   size={17}
                 />
@@ -3108,11 +2899,11 @@ function SchemeFinder({
                 {loading ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Finding Schemes...
+                    {t("findingSchemes", currentLanguage)}
                   </>
                 ) : (
                   <>
-                    Find My Schemes
+                    {t("findMyScheme", currentLanguage)}
                     <Sparkles
                       size={
                         17
@@ -3138,6 +2929,8 @@ function SchemeResults({
   formData,
   onBack,
   onHome,
+  currentLanguage = "en",
+  onLanguageChange,
 }) {
   const primaryEligible =
     Array.isArray(
@@ -3229,7 +3022,7 @@ function SchemeResults({
             <ArrowLeft
               size={18}
             />
-            Home
+            {t("home", currentLanguage)}
           </button>
 
           <div className="flex items-center gap-3">
@@ -3246,9 +3039,12 @@ function SchemeResults({
             </p>
           </div>
 
-          <span className="hidden text-xs font-semibold text-[#718096] sm:block">
-            Matching Results
-          </span>
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
+            />
+          </div>
         </div>
       </header>
 
@@ -3257,17 +3053,15 @@ function SchemeResults({
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center md:gap-10">
             <div className="min-w-0">
               <p className="text-[11px] font-bold tracking-[0.17em] text-[#1769a8]">
-                SCHEME ELIGIBILITY CHECK COMPLETE
+                {t("eligibilityCheckComplete", currentLanguage)}
               </p>
 
               <h1 className="mt-2 font-serif text-3xl font-bold text-[#17334f] md:text-4xl">
-                Here are the schemes you may be eligible for.
+                {t("schemesYouMayBeEligibleFor", currentLanguage)}
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[#60758a]">
-                Eligibility is determined by the backend rule engine.
-                Women-focused schemes are additionally filtered by the
-                applicant's gender before recommendation.
+                {t("resultsDisclaimer", currentLanguage)}
               </p>
             </div>
 
@@ -3289,7 +3083,7 @@ function SchemeResults({
               </div>
 
               <span className="mt-1 text-center text-[9px] font-bold uppercase tracking-[0.12em] text-[#6a7d8e]">
-                Match Score
+                {t("matchScore", currentLanguage)}
               </span>
             </div>
           </div>
@@ -3304,7 +3098,7 @@ function SchemeResults({
               />
 
               <p className="text-[11px] font-bold tracking-[0.16em] text-[#7a6a50]">
-                TOP ELIGIBLE PRIMARY SCHEME
+                {t("topEligiblePrimaryScheme", currentLanguage)}
               </p>
             </div>
 
@@ -3319,13 +3113,13 @@ function SchemeResults({
                     </span>
 
                     <span className="rounded-full bg-[#edf6ec] px-3 py-1 text-[10px] font-bold text-[#47744a]">
-                      ELIGIBLE
+                      {t("eligible", currentLanguage)}
                     </span>
 
                     <span className="rounded-full bg-[#eaf5fa] px-3 py-1 text-[10px] font-bold text-[#145c91]">
                       {topSchemeScore}%
                       {" "}
-                      MATCH
+                      {t("match", currentLanguage)}
                     </span>
                   </div>
 
@@ -3336,14 +3130,13 @@ function SchemeResults({
                   </h2>
 
                   <p className="mt-2 text-sm leading-6 text-[#6e7f91]">
-                    This scheme passed the current backend eligibility
-                    filters for your submitted profile.
+                    {t("topSchemePassedDesc", currentLanguage)}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-[#f7fafc] p-5 md:min-w-[260px]">
                   <p className="text-[11px] font-semibold text-[#7f8c99]">
-                    Matching reasons
+                    {t("matchingReasons", currentLanguage)}
                   </p>
 
                   <div className="mt-3 space-y-3">
@@ -3393,25 +3186,25 @@ function SchemeResults({
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <p className="text-[11px] font-bold tracking-[0.16em] text-[#1769a8]">
-                PRIMARY RECOMMENDATIONS
+                {t("primaryRecommendations", currentLanguage)}
               </p>
 
               <h2 className="mt-1 font-serif text-2xl font-bold text-[#20344b]">
-                Eligible PS-Core Schemes
+                {t("eligibleCoreSchemes", currentLanguage)}
               </h2>
             </div>
 
             <span className="text-xs font-semibold text-[#7a8998]">
               {primaryMatchCount}{" "}
-              eligible
+              {t("eligibleCount", currentLanguage)}
             </span>
           </div>
 
           {primaryEligible.length ===
           0 ? (
             <EmptyState
-              title="No primary scheme matched"
-              text="Your submitted profile did not satisfy the current primary-scheme eligibility rules."
+              title={t("noPrimaryMatched", currentLanguage)}
+              text={t("noPrimaryMatchedDesc", currentLanguage)}
             />
           ) : (
             <div className="mt-5 grid gap-5 md:grid-cols-2">
@@ -3425,10 +3218,13 @@ function SchemeResults({
                     formData={
                       formData
                     }
+                    currentLanguage={currentLanguage}
                     featured={
                       scheme.scheme_id ===
                       topScheme?.scheme_id
                     }
+                    onApply={onApplyScheme}
+                    onNavigate={onNavigate}
                   />
                 ),
               )}
@@ -3440,25 +3236,25 @@ function SchemeResults({
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <p className="text-[11px] font-bold tracking-[0.16em] text-[#7a8998]">
-                SECONDARY
+                {t("secondarySupport", currentLanguage)}
               </p>
 
               <h2 className="mt-1 font-serif text-2xl font-bold text-[#20344b]">
-                Related / Connected Support
+                {t("connectedSupport", currentLanguage)}
               </h2>
             </div>
 
             <span className="text-xs font-semibold text-[#7a8998]">
               {secondaryMatchCount}{" "}
-              available
+              {t("availableCount", currentLanguage)}
             </span>
           </div>
 
           {secondaryEligible.length ===
           0 ? (
             <EmptyState
-              title="No secondary support matched"
-              text="No connected support programme passed the current filters."
+              title={t("noSecondaryMatched", currentLanguage)}
+              text={t("noSecondaryMatchedDesc", currentLanguage)}
             />
           ) : (
             <div className="mt-5 grid gap-5">
@@ -3472,7 +3268,10 @@ function SchemeResults({
                     formData={
                       formData
                     }
+                    currentLanguage={currentLanguage}
                     secondary
+                    onApply={onApplyScheme}
+                    onNavigate={onNavigate}
                   />
                 ),
               )}
@@ -3483,23 +3282,22 @@ function SchemeResults({
         <section className="mt-12">
           <div>
             <p className="text-[11px] font-bold tracking-[0.16em] text-[#8c6e6e]">
-              NOT ELIGIBLE
+              {t("notEligible", currentLanguage)}
             </p>
 
             <h2 className="mt-1 font-serif text-2xl font-bold text-[#48343d]">
-              Primary schemes that were filtered out
+              {t("filteredOutSchemes", currentLanguage)}
             </h2>
 
             <p className="mt-2 text-sm text-[#7b8087]">
-              These are shown for transparency so the applicant can
-              understand why a scheme was not recommended.
+              {t("filteredOutDesc", currentLanguage)}
             </p>
           </div>
 
           {primaryIneligible.length ===
           0 ? (
             <div className="mt-5 rounded-xl border border-[#dfe9df] bg-white p-5 text-sm text-[#607a60]">
-              No primary schemes were filtered out.
+              {t("noSchemesFilteredOut", currentLanguage)}
             </div>
           ) : (
             <div className="mt-5 space-y-4">
@@ -3521,7 +3319,7 @@ function SchemeResults({
                           </span>
 
                           <span className="rounded-full bg-[#fff0f0] px-3 py-1 text-[10px] font-bold text-[#a44c4c]">
-                            NOT ELIGIBLE
+                            {t("notEligible", currentLanguage)}
                           </span>
 
                           {scheme.match_score ===
@@ -3529,7 +3327,7 @@ function SchemeResults({
                             scheme.eligibility_status ===
                               "NOT_ELIGIBLE_GENDER" && (
                               <span className="rounded-full bg-[#fff0f0] px-3 py-1 text-[10px] font-bold text-[#a44c4c]">
-                                0% MATCH
+                                {t("zeroMatch", currentLanguage)}
                               </span>
                             )}
                         </div>
@@ -3598,14 +3396,11 @@ function SchemeResults({
 
             <div>
               <h3 className="font-serif text-xl font-bold text-[#263b52]">
-                What happens next?
+                {t("whatHappensNext", currentLanguage)}
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-[#6e7f91]">
-                The current result is the deterministic eligibility result
-                from FastAPI. Eligible schemes can then be ranked, given a
-                detailed match score, explained, and connected to documents,
-                financial calculations and channel-partner routing.
+                {t("whatHappensNextDesc", currentLanguage)}
               </p>
             </div>
           </div>
@@ -3621,7 +3416,7 @@ function SchemeResults({
             <ArrowLeft
               size={17}
             />
-            Back to Profile
+            {t("backToProfile", currentLanguage)}
           </button>
 
           <button
@@ -3630,23 +3425,23 @@ function SchemeResults({
             }
             className="flex items-center gap-2 rounded-lg bg-[#145c91] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#104d7b]"
           >
-            Back to Home
+            {t("backToHome", currentLanguage)}
           </button>
         </div>
 
         <div className="mt-8 text-xs text-[#8a97a3]">
-          Submitted profile:{" "}
+          {t("submittedProfile", currentLanguage)}{" "}
           {formData.fullName ||
-            "Applicant"}{" "}
-          • Category:{" "}
+            t("applicant", currentLanguage)}{" "}
+          • {t("categoryLabel", currentLanguage)}{" "}
           {formData.category ||
-            "Not selected"}{" "}
+            t("notSelected", currentLanguage)}{" "}
           •{" "}
           {formData.state
             ? formatValue(
                 formData.state,
               )
-            : "Location not provided"}
+            : t("locationNotProvided", currentLanguage)}
         </div>
       </main>
     </div>
@@ -3660,6 +3455,7 @@ function SchemeResults({
 function StepOne({
   formData,
   updateField,
+  currentLanguage = "en",
 }) {
   const [statesList, setStatesList] = useState([]);
   const [districtsList, setDistrictsList] = useState([]);
@@ -3681,7 +3477,7 @@ function StepOne({
         }
       } catch {
         if (active) {
-          setLocationError("Failed to load states. Please refresh the page.");
+          setLocationError(t("failedLoadStates", currentLanguage));
           setStatesList([]);
         }
       } finally {
@@ -3696,7 +3492,7 @@ function StepOne({
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentLanguage]);
 
   useEffect(() => {
     if (!formData.state) return;
@@ -3736,15 +3532,15 @@ function StepOne({
   return (
     <div>
       <SectionIntro
-        eyebrow="PERSONAL INFORMATION"
-        title="Tell us a little about yourself"
-        description="These details help Scheme Saathi identify the schemes that may apply to your profile."
+        eyebrow={t("personalInfoEyebrow", currentLanguage)}
+        title={t("tellUsAboutYourself", currentLanguage)}
+        description={t("personalInfoDesc", currentLanguage)}
       />
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <TextField
-          label="Full Name"
-          placeholder="Enter your full name"
+          label={t("fullName", currentLanguage)}
+          placeholder={t("enterFullName", currentLanguage)}
           value={
             formData.fullName
           }
@@ -3757,8 +3553,8 @@ function StepOne({
         />
 
         <TextField
-          label="Age"
-          placeholder="Enter your age"
+          label={t("age", currentLanguage)}
+          placeholder={t("enterAge", currentLanguage)}
           type="number"
           value={
             formData.age
@@ -3772,7 +3568,8 @@ function StepOne({
         />
 
         <SelectField
-          label="Gender"
+          label={t("gender", currentLanguage)}
+          currentLanguage={currentLanguage}
           value={
             formData.gender
           }
@@ -3785,27 +3582,27 @@ function StepOne({
           options={[
             {
               value: "female",
-              label: "Female",
+              label: t("female", currentLanguage),
             },
             {
               value: "male",
-              label: "Male",
+              label: t("male", currentLanguage),
             },
             {
               value: "other",
-              label: "Other",
+              label: t("other", currentLanguage),
             },
             {
               value: "prefer_not",
-              label:
-                "Prefer not to say",
+              label: t("preferNotToSay", currentLanguage),
             },
           ]}
         />
 
         <SelectField
-          label="Category"
-          helper="Your category will be checked against each scheme's actual eligibility rules."
+          label={t("category", currentLanguage)}
+          currentLanguage={currentLanguage}
+          helper={t("catHelper", currentLanguage)}
           value={
             formData.category
           }
@@ -3818,39 +3615,35 @@ function StepOne({
           options={[
             {
               value: "SC",
-              label:
-                "Scheduled Caste (SC)",
+              label: t("catSC", currentLanguage),
             },
             {
               value: "ST",
-              label:
-                "Scheduled Tribe (ST)",
+              label: t("catST", currentLanguage),
             },
             {
               value: "OBC",
-              label:
-                "Other Backward Class (OBC)",
+              label: t("catOBC", currentLanguage),
             },
             {
               value: "GENERAL",
-              label: "General",
+              label: t("catGeneral", currentLanguage),
             },
             {
               value: "EWS",
-              label:
-                "Economically Weaker Section (EWS)",
+              label: t("catEWS", currentLanguage),
             },
             {
               value:
                 "SAFAI_KARAMCHARI",
-              label:
-                "Safai Karamchari",
+              label: t("catSafaiKaramchari", currentLanguage),
             },
           ]}
         />
 
         <SelectField
-          label="State"
+          label={t("state", currentLanguage)}
+          currentLanguage={currentLanguage}
           value={
             formData.state
           }
@@ -3867,13 +3660,14 @@ function StepOne({
             locationError
               ? locationError
               : locationLoading
-              ? "Loading states..."
+              ? t("loadingStates", currentLanguage)
               : undefined
           }
         />
 
         <SelectField
-          label="District"
+          label={t("district", currentLanguage)}
+          currentLanguage={currentLanguage}
           value={
             formData.district
           }
@@ -3890,14 +3684,14 @@ function StepOne({
           }
           helper={
             !formData.state
-              ? "Select a state first"
+              ? t("selectStateFirst", currentLanguage)
               : undefined
           }
           disabled={!formData.state}
         />
 
         <TextField
-          label="Annual Family Income"
+          label={t("annualIncome", currentLanguage)}
           prefix="₹"
           type="number"
           placeholder="e.g. 320000"
@@ -3920,9 +3714,7 @@ function StepOne({
           />
         }
       >
-        Scheme Saathi first applies rule-based scheme eligibility. AI can
-        assist with ranking and explanation only after eligible schemes have
-        been identified.
+        {t("infoBox1", currentLanguage)}
       </InfoBox>
     </div>
   );
@@ -3935,6 +3727,7 @@ function StepOne({
 function StepTwo({
   formData,
   updateField,
+  currentLanguage = "en",
 }) {
   const purposes = [
     {
@@ -3942,9 +3735,8 @@ function StepTwo({
       icon: (
         <Sparkles size={24} />
       ),
-      title:
-        "Start a New Business",
-      text: "I want financing to start a new income-generating activity.",
+      title: t("startNewBusiness", currentLanguage),
+      text: t("startNewBusinessDesc", currentLanguage),
     },
 
     {
@@ -3955,9 +3747,8 @@ function StepTwo({
           size={24}
         />
       ),
-      title:
-        "Expand Existing Business",
-      text: "I already have a business and want to grow it.",
+      title: t("expandBusiness", currentLanguage),
+      text: t("expandBusinessDesc", currentLanguage),
     },
 
     {
@@ -3965,9 +3756,8 @@ function StepTwo({
       icon: (
         <MapPin size={24} />
       ),
-      title:
-        "Agriculture / Allied",
-      text: "My requirement is related to agriculture or allied activities.",
+      title: t("agricultureAllied", currentLanguage),
+      text: t("agricultureAlliedDesc", currentLanguage),
     },
 
     {
@@ -3977,25 +3767,24 @@ function StepTwo({
           size={24}
         />
       ),
-      title: "Education",
-      text: "I need financing for eligible education or professional study.",
+      title: t("education", currentLanguage),
+      text: t("educationDesc", currentLanguage),
     },
 
     {
       value: "skill",
       icon: <Bot size={24} />,
-      title:
-        "Skill / Vocational",
-      text: "I need support related to skill or vocational development.",
+      title: t("skillVocational", currentLanguage),
+      text: t("skillVocationalDesc", currentLanguage),
     },
   ];
 
   return (
     <div>
       <SectionIntro
-        eyebrow="YOUR REQUIREMENT"
-        title="What do you need support for?"
-        description="Choose the option that most closely matches your current financial requirement."
+        eyebrow={t("requirementEyebrow", currentLanguage)}
+        title={t("needSupportTitle", currentLanguage)}
+        description={t("needSupportSubtitle", currentLanguage)}
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -4073,8 +3862,7 @@ function StepTwo({
           <Bot size={18} />
         }
       >
-        Your selected purpose helps the backend identify compatible schemes.
-        Final eligibility remains rule-based.
+        {t("infoBox2", currentLanguage)}
       </InfoBox>
     </div>
   );
@@ -4089,27 +3877,29 @@ function StepThree({
   updateField,
   isBusiness,
   isEducation,
+  currentLanguage = "en",
 }) {
   return (
     <div>
       <SectionIntro
-        eyebrow="PROJECT / EDUCATION"
+        eyebrow={t("projectEducationEyebrow", currentLanguage)}
         title={
           isEducation
-            ? "Tell us about your education requirement"
-            : "Tell us about your project"
+            ? t("eduTitle", currentLanguage)
+            : t("projectTitle", currentLanguage)
         }
         description={
           isEducation
-            ? "These details will help identify applicable educational financing options."
-            : "Provide your project details so the backend can compare them against scheme rules."
+            ? t("eduDesc", currentLanguage)
+            : t("projectDesc", currentLanguage)
         }
       />
 
       {isEducation ? (
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           <SelectField
-            label="Education Level"
+            label={t("educationLevel", currentLanguage)}
+            currentLanguage={currentLanguage}
             value={
               formData.educationLevel
             }
@@ -4123,30 +3913,27 @@ function StepThree({
               {
                 value:
                   "professional",
-                label:
-                  "Professional / Technical",
+                label: t("eduProfessional", currentLanguage),
               },
               {
                 value:
                   "undergraduate",
-                label:
-                  "Undergraduate",
+                label: t("eduUndergraduate", currentLanguage),
               },
               {
                 value:
                   "postgraduate",
-                label:
-                  "Postgraduate",
+                label: t("eduPostgraduate", currentLanguage),
               },
               {
                 value: "other",
-                label: "Other",
+                label: t("other", currentLanguage),
               },
             ]}
           />
 
           <TextField
-            label="Course"
+            label={t("course", currentLanguage)}
             placeholder="e.g. B.Tech Computer Science"
             value={
               formData.course
@@ -4160,8 +3947,8 @@ function StepThree({
           />
 
           <TextField
-            label="Institution"
-            placeholder="Enter institution name"
+            label={t("institution", currentLanguage)}
+            placeholder={t("enterInstitution", currentLanguage)}
             value={
               formData.institution
             }
@@ -4174,7 +3961,7 @@ function StepThree({
           />
 
           <TextField
-            label="Course Fee"
+            label={t("courseFee", currentLanguage)}
             prefix="₹"
             type="number"
             placeholder="e.g. 800000"
@@ -4192,7 +3979,8 @@ function StepThree({
       ) : (
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           <SelectField
-            label="Project / Business Type"
+            label={t("projectBusinessType", currentLanguage)}
+            currentLanguage={currentLanguage}
             value={
               formData.businessType
             }
@@ -4206,47 +3994,41 @@ function StepThree({
               {
                 value:
                   "tailoring",
-                label:
-                  "Tailoring / Garment",
+                label: t("bizTailoring", currentLanguage),
               },
               {
                 value:
                   "retail",
-                label:
-                  "Retail / Shop",
+                label: t("bizRetail", currentLanguage),
               },
               {
                 value: "food",
-                label:
-                  "Food / Catering",
+                label: t("bizFood", currentLanguage),
               },
               {
                 value: "dairy",
-                label:
-                  "Dairy / Animal Husbandry",
+                label: t("bizDairy", currentLanguage),
               },
               {
                 value:
                   "services",
-                label:
-                  "Service Business",
+                label: t("bizServices", currentLanguage),
               },
               {
                 value:
                   "manufacturing",
-                label:
-                  "Small Manufacturing",
+                label: t("bizManufacturing", currentLanguage),
               },
               {
                 value: "other",
-                label:
-                  "Other",
+                label: t("other", currentLanguage),
               },
             ]}
           />
 
           <SelectField
-            label="Project Stage"
+            label={t("projectStage", currentLanguage)}
+            currentLanguage={currentLanguage}
             value={
               formData.projectStage
             }
@@ -4259,19 +4041,18 @@ function StepThree({
             options={[
               {
                 value: "new",
-                label: "New Project",
+                label: t("newProject", currentLanguage),
               },
               {
                 value:
                   "existing",
-                label:
-                  "Existing Project",
+                label: t("existingProject", currentLanguage),
               },
             ]}
           />
 
           <TextField
-            label="Estimated Project Cost"
+            label={t("estimatedProjectCost", currentLanguage)}
             prefix="₹"
             type="number"
             placeholder="e.g. 300000"
@@ -4287,7 +4068,7 @@ function StepThree({
           />
 
           <TextField
-            label="Required Loan Amount"
+            label={t("requiredLoanAmount", currentLanguage)}
             prefix="₹"
             type="number"
             placeholder="e.g. 250000"
@@ -4314,12 +4095,11 @@ function StepThree({
 
             <div>
               <p className="text-sm font-bold text-[#284159]">
-                Why we ask this
+                {t("whyWeAskThis", currentLanguage)}
               </p>
 
               <p className="mt-1 text-xs leading-5 text-[#6d7d8f]">
-                Project type and amount are important inputs for
-                scheme-level financial eligibility checks.
+                {t("whyWeAskThisDesc", currentLanguage)}
               </p>
             </div>
           </div>
@@ -4336,18 +4116,19 @@ function StepThree({
 function StepFour({
   formData,
   updateField,
+  currentLanguage = "en",
 }) {
   return (
     <div>
       <SectionIntro
-        eyebrow="FINANCIAL PROFILE"
-        title="A little more about your finances"
-        description="This information can support scheme and channel-partner matching."
+        eyebrow={t("finProfileEyebrow", currentLanguage)}
+        title={t("finTitle", currentLanguage)}
+        description={t("finDesc", currentLanguage)}
       />
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <TextField
-          label="Your Own Contribution"
+          label={t("ownContribution", currentLanguage)}
           prefix="₹"
           type="number"
           placeholder="e.g. 50000"
@@ -4363,7 +4144,8 @@ function StepFour({
         />
 
         <SelectField
-          label="Do you have an existing loan?"
+          label={t("existingLoan", currentLanguage)}
+          currentLanguage={currentLanguage}
           value={
             formData.existingLoan
           }
@@ -4376,11 +4158,11 @@ function StepFour({
           options={[
             {
               value: "no",
-              label: "No",
+              label: t("no", currentLanguage),
             },
             {
               value: "yes",
-              label: "Yes",
+              label: t("yes", currentLanguage),
             },
           ]}
         />
@@ -4389,7 +4171,7 @@ function StepFour({
           "yes" && (
           <>
             <TextField
-              label="Outstanding Loan Amount"
+              label={t("outstandingAmount", currentLanguage)}
               prefix="₹"
               type="number"
               placeholder="e.g. 90000"
@@ -4405,7 +4187,8 @@ function StepFour({
             />
 
             <SelectField
-              label="Any Existing Overdue?"
+              label={t("existingOverdue", currentLanguage)}
+              currentLanguage={currentLanguage}
               value={
                 formData.overdue
               }
@@ -4418,17 +4201,16 @@ function StepFour({
               options={[
                 {
                   value: "no",
-                  label: "No",
+                  label: t("no", currentLanguage),
                 },
                 {
                   value: "yes",
-                  label: "Yes",
+                  label: t("yes", currentLanguage),
                 },
                 {
                   value:
                     "not_sure",
-                  label:
-                    "Not sure",
+                  label: t("notSure", currentLanguage),
                 },
               ]}
             />
@@ -4443,8 +4225,7 @@ function StepFour({
           />
         }
       >
-        Financial information supports eligibility and partner-routing
-        decisions. It does not itself guarantee loan approval.
+        {t("infoBox4", currentLanguage)}
       </InfoBox>
     </div>
   );
@@ -4456,63 +4237,64 @@ function StepFour({
 
 function StepFive({
   formData,
+  currentLanguage = "en",
 }) {
   const purposeLabels = {
     new_business:
-      "Start a New Business",
+      t("startNewBusiness", currentLanguage),
 
     business_expansion:
-      "Expand Existing Business",
+      t("expandBusiness", currentLanguage),
 
     agriculture:
-      "Agriculture / Allied",
+      t("agricultureAllied", currentLanguage),
 
     education:
-      "Education",
+      t("education", currentLanguage),
 
     skill:
-      "Skill / Vocational",
+      t("skillVocational", currentLanguage),
   };
 
   const genderLabels = {
-    female: "Female",
-    male: "Male",
-    other: "Other",
+    female: t("female", currentLanguage),
+    male: t("male", currentLanguage),
+    other: t("other", currentLanguage),
     prefer_not:
-      "Prefer not to say",
+      t("preferNotToSay", currentLanguage),
   };
 
   const categoryLabels = {
     SC:
-      "Scheduled Caste (SC)",
+      t("catSC", currentLanguage),
 
     ST:
-      "Scheduled Tribe (ST)",
+      t("catST", currentLanguage),
 
     OBC:
-      "Other Backward Class (OBC)",
+      t("catOBC", currentLanguage),
 
     GENERAL:
-      "General",
+      t("catGeneral", currentLanguage),
 
     EWS:
-      "Economically Weaker Section (EWS)",
+      t("catEWS", currentLanguage),
 
     SAFAI_KARAMCHARI:
-      "Safai Karamchari",
+      t("catSafaiKaramchari", currentLanguage),
   };
 
   return (
     <div>
       <SectionIntro
-        eyebrow="FINAL REVIEW"
-        title="Review your information"
-        description="Please check your details before sending your profile to the scheme-matching backend."
+        eyebrow={t("finalReviewEyebrow", currentLanguage)}
+        title={t("reviewTitle", currentLanguage)}
+        description={t("reviewDesc", currentLanguage)}
       />
 
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         <ReviewCard
-          title="Personal Information"
+          title={t("personalInformation", currentLanguage)}
           icon={
             <UserRound
               size={20}
@@ -4520,59 +4302,59 @@ function StepFive({
           }
           rows={[
             [
-              "Name",
+              t("name", currentLanguage),
               formData.fullName ||
-                "Not provided",
+                t("notProvided", currentLanguage),
             ],
 
             [
-              "Age",
+              t("age", currentLanguage),
               formData.age ||
-                "Not provided",
+                t("notProvided", currentLanguage),
             ],
 
             [
-              "Gender",
+              t("gender", currentLanguage),
               genderLabels[
                 formData.gender
               ] ||
-                "Not selected",
+                t("notSelected", currentLanguage),
             ],
 
             [
-              "Category",
+              t("category", currentLanguage),
               categoryLabels[
                 formData.category
               ] ||
-                "Not selected",
+                t("notSelected", currentLanguage),
             ],
 
             [
-              "State",
+              t("state", currentLanguage),
               formatValue(
                 formData.state,
               ),
             ],
 
             [
-              "District",
+              t("district", currentLanguage),
               formData.district ||
-                "Not provided",
+                t("notProvided", currentLanguage),
             ],
 
             [
-              "Annual Family Income",
+              t("annualIncome", currentLanguage),
               formData.annualIncome
                 ? formatCurrency(
                     formData.annualIncome,
                   )
-                : "Not provided",
+                : t("notProvided", currentLanguage),
             ],
           ]}
         />
 
         <ReviewCard
-          title="Requirement"
+          title={t("requirement", currentLanguage)}
           icon={
             <Sparkles
               size={20}
@@ -4580,49 +4362,49 @@ function StepFive({
           }
           rows={[
             [
-              "Purpose",
+              t("purpose", currentLanguage),
               purposeLabels[
                 formData.purpose
               ] ||
-                "Not selected",
+                t("notSelected", currentLanguage),
             ],
 
             [
-              "Business Type",
+              t("projectBusinessType", currentLanguage),
               formatValue(
                 formData.businessType,
               ),
             ],
 
             [
-              "Project Stage",
+              t("projectStage", currentLanguage),
               formatValue(
                 formData.projectStage,
               ),
             ],
 
             [
-              "Project Cost",
+              t("estimatedProjectCost", currentLanguage),
               formData.projectCost
                 ? formatCurrency(
                     formData.projectCost,
                   )
-                : "Not provided",
+                : t("notProvided", currentLanguage),
             ],
 
             [
-              "Required Loan",
+              t("requiredLoanAmount", currentLanguage),
               formData.requiredLoan
                 ? formatCurrency(
                     formData.requiredLoan,
                   )
-                : "Not provided",
+                : t("notProvided", currentLanguage),
             ],
           ]}
         />
 
         <ReviewCard
-          title="Education"
+          title={t("education", currentLanguage)}
           icon={
             <FileText
               size={20}
@@ -4630,37 +4412,37 @@ function StepFive({
           }
           rows={[
             [
-              "Level",
+              t("educationLevel", currentLanguage),
               formatValue(
                 formData.educationLevel,
               ),
             ],
 
             [
-              "Course",
+              t("course", currentLanguage),
               formData.course ||
-                "Not applicable",
+                t("notProvided", currentLanguage),
             ],
 
             [
-              "Institution",
+              t("institution", currentLanguage),
               formData.institution ||
-                "Not applicable",
+                t("notProvided", currentLanguage),
             ],
 
             [
-              "Course Fee",
+              t("courseFee", currentLanguage),
               formData.courseFee
                 ? formatCurrency(
                     formData.courseFee,
                   )
-                : "Not applicable",
+                : t("notProvided", currentLanguage),
             ],
           ]}
         />
 
         <ReviewCard
-          title="Financial Profile"
+          title={t("stepFinancialProfile", currentLanguage)}
           icon={
             <Calculator
               size={20}
@@ -4668,41 +4450,41 @@ function StepFive({
           }
           rows={[
             [
-              "Own Contribution",
+              t("ownContribution", currentLanguage),
               formData.ownContribution
                 ? formatCurrency(
                     formData.ownContribution,
                   )
-                : "Not provided",
+                : t("notProvided", currentLanguage),
             ],
 
             [
-              "Existing Loan",
+              t("existingLoan", currentLanguage),
               formData.existingLoan ===
               "yes"
-                ? "Yes"
+                ? t("yes", currentLanguage)
                 : formData.existingLoan ===
                     "no"
-                  ? "No"
-                  : "Not selected",
+                  ? t("no", currentLanguage)
+                  : t("notSelected", currentLanguage),
             ],
 
             [
-              "Outstanding",
+              t("outstandingAmount", currentLanguage),
               formData.outstandingAmount
                 ? formatCurrency(
                     formData.outstandingAmount,
                   )
-                : "Not applicable",
+                : t("notProvided", currentLanguage),
             ],
 
             [
-              "Overdue",
-              formData.overdue
-                ? formatValue(
-                    formData.overdue,
-                  )
-                : "Not applicable",
+              t("existingOverdue", currentLanguage),
+              formData.overdue === "yes"
+                ? t("yes", currentLanguage)
+                : formData.overdue === "no"
+                ? t("no", currentLanguage)
+                : t("notSelected", currentLanguage),
             ],
           ]}
         />
@@ -4717,13 +4499,11 @@ function StepFive({
 
           <div>
             <p className="font-bold text-[#244058]">
-              What happens after you submit?
+              {t("whatHappensNext", currentLanguage)}
             </p>
 
             <p className="mt-1 text-xs leading-6 text-[#62768a]">
-              Scheme Saathi sends these details to FastAPI. The backend
-              applies rule-based eligibility first. Eligible schemes are
-              then returned for recommendation and ranking.
+              {t("whatHappensNextDesc", currentLanguage)}
             </p>
           </div>
         </div>
@@ -4768,13 +4548,15 @@ function TextField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[13px] font-bold text-[#2c4058]">
-        {label}
-      </span>
+      {label ? (
+        <span className="mb-2 block text-[13px] font-bold text-[#2c4058]">
+          {label}
+        </span>
+      ) : null}
 
       <div className="relative">
         {prefix && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#7a8999]">
+          <span className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#7a8998]">
             {prefix}
           </span>
         )}
@@ -4792,7 +4574,7 @@ function TextField({
             "w-full rounded-lg border border-[#ced9e1] bg-white px-4 py-3.5 text-sm text-[#21364f] outline-none transition",
             "placeholder:text-[#a1acb6] focus:border-[#1769a8] focus:ring-4 focus:ring-[#1769a8]/10",
             prefix
-              ? "pl-9"
+              ? "pl-9 rtl:pl-4 rtl:pr-9"
               : "",
           ].join(" ")}
         />
@@ -4808,6 +4590,8 @@ function SelectField({
   onChange,
   options,
   disabled = false,
+  placeholder,
+  currentLanguage = "en",
 }) {
   return (
     <label className="block">
@@ -4826,10 +4610,10 @@ function SelectField({
               event.target.value,
             )
           }
-          className="w-full appearance-none rounded-lg border border-[#ced9e1] bg-white px-4 py-3.5 pr-10 text-sm text-[#21364f] outline-none transition focus:border-[#1769a8] focus:ring-4 focus:ring-[#1769a8]/10 disabled:bg-[#f1f5f9] disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full appearance-none rounded-lg border border-[#ced9e1] bg-white px-4 py-3.5 pr-10 rtl:pr-4 rtl:pl-10 text-sm text-[#21364f] outline-none transition focus:border-[#1769a8] focus:ring-4 focus:ring-[#1769a8]/10 disabled:bg-[#f1f5f9] disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <option value="">
-            Select an option
+            {placeholder || t("selectAnOption", currentLanguage)}
           </option>
 
           {options.map(
@@ -4852,7 +4636,7 @@ function SelectField({
 
         <ChevronDown
           size={17}
-          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#718096]"
+          className="pointer-events-none absolute right-4 rtl:right-auto rtl:left-4 top-1/2 -translate-y-1/2 text-[#718096]"
         />
       </div>
 
@@ -5036,6 +4820,9 @@ function SchemeCard({
   documents,
   route,
   icon,
+  currentLanguage = "en",
+  onApply,
+  onNavigate,
 }) {
   return (
     <div className="group rounded-2xl border border-[#d8e3e9] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
@@ -5060,7 +4847,7 @@ function SchemeCard({
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-lg bg-[#f7fafc] p-3">
           <p className="text-[10px] text-[#84919d]">
-            Interest Rate
+            {t("interestRate", currentLanguage)}
           </p>
 
           <p className="mt-1 text-sm font-bold text-[#145c91]">
@@ -5070,7 +4857,7 @@ function SchemeCard({
 
         <div className="rounded-lg bg-[#f7fafc] p-3">
           <p className="text-[10px] text-[#84919d]">
-            Maximum Loan
+            {t("maxLoan", currentLanguage)}
           </p>
 
           <p className="mt-1 text-sm font-bold text-[#263b52]">
@@ -5081,7 +4868,7 @@ function SchemeCard({
 
       <div className="mt-3 rounded-lg border border-[#e1e8ed] p-3">
         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8995a0]">
-          Financial Range
+          {t("financialRange", currentLanguage)}
         </p>
 
         <p className="mt-1 text-xs leading-5 text-[#60758a]">
@@ -5091,7 +4878,7 @@ function SchemeCard({
 
       <div className="mt-4 rounded-xl bg-[#f8fbfd] p-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#1769a8]">
-          Eligibility
+          {t("eligibilityTitle", currentLanguage)}
         </p>
 
         <div className="mt-3 space-y-2">
@@ -5119,7 +4906,7 @@ function SchemeCard({
 
       <div className="mt-4 rounded-xl bg-[#fbf7ee] p-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a7047]">
-          Indicative Documents
+          {t("indicativeDocuments", currentLanguage)}
         </p>
 
         <div className="mt-3 space-y-2">
@@ -5145,8 +4932,7 @@ function SchemeCard({
         </div>
 
         <p className="mt-3 text-[10px] leading-4 text-[#8a7b62]">
-          Final document requirements may vary by the concerned
-          channelizing / lending agency.
+          {t("docRequirementsNote", currentLanguage)}
         </p>
       </div>
 
@@ -5157,9 +4943,24 @@ function SchemeCard({
         />
 
         <span>
-          Application route:{" "}
+          {t("applicationRoute", currentLanguage)}{" "}
           {route}
         </span>
+      </div>
+
+      <div className="mt-5 flex items-center gap-2 border-t border-[#edf2f6] pt-4">
+        <button
+          onClick={() => onApply?.({ id: code, name: title })}
+          className="flex-1 rounded-xl bg-[#1769a8] py-2.5 text-center text-xs font-bold text-white shadow-sm transition hover:bg-[#12578c]"
+        >
+          {t("applyNowBtn", currentLanguage)}
+        </button>
+        <button
+          onClick={() => onNavigate?.("tracking")}
+          className="rounded-xl border border-[#cbd8e2] px-3.5 py-2.5 text-xs font-semibold text-[#506379] transition hover:bg-[#f0f5fa]"
+        >
+          {t("trackApplication", currentLanguage)}
+        </button>
       </div>
     </div>
   );
@@ -5174,6 +4975,9 @@ function EligibleSchemeCard({
   formData,
   featured = false,
   secondary = false,
+  currentLanguage = "en",
+  onApply,
+  onNavigate,
 }) {
   /*
     Absolute safety:
@@ -5231,21 +5035,25 @@ function EligibleSchemeCard({
               )}
             >
               {secondary
-                ? "CONNECTED SUPPORT"
-                : "ELIGIBLE"}
+                ? t("connectedSupportBadge", currentLanguage)
+                : t("eligible", currentLanguage)}
             </span>
 
             <span className="rounded-full bg-[#eaf5fa] px-3 py-1 text-[10px] font-bold text-[#145c91]">
               {
                 schemeMatchScore
               }
-              % MATCH
+              % {t("match", currentLanguage)}
             </span>
           </div>
 
           <h3 className="mt-4 font-serif text-xl font-bold text-[#20344b]">
             {
-              scheme.scheme_name
+              getLocalizedSchemeName(
+                scheme?.scheme_id || scheme?.id,
+                scheme?.scheme_name,
+                currentLanguage,
+              )
             }
           </h3>
         </div>
@@ -5258,14 +5066,13 @@ function EligibleSchemeCard({
 
       <div className="mt-5 rounded-xl bg-[#f7fafc] p-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8995a0]">
-          Why it matched
+          {t("whyItMatched", currentLanguage)}
         </p>
 
         {reasons.length ===
         0 ? (
           <p className="mt-3 text-xs text-[#718096]">
-            Eligibility criteria were satisfied according to the backend
-            rule engine.
+            {t("criteriaSatisfiedDesc", currentLanguage)}
           </p>
         ) : (
           <div className="mt-3 space-y-2">
@@ -5295,6 +5102,26 @@ function EligibleSchemeCard({
           }
         </div>
       )}
+
+      <div className="mt-5 flex items-center gap-2 border-t border-[#e2eaf0] pt-4">
+        <button
+          onClick={() =>
+            onApply?.({
+              id: scheme.scheme_id,
+              name: localizedSchemeName,
+            })
+          }
+          className="flex-1 rounded-xl bg-[#1769a8] py-2.5 text-center text-xs font-bold text-white shadow-sm transition hover:bg-[#12578c]"
+        >
+          {t("applyNowBtn", currentLanguage)}
+        </button>
+        <button
+          onClick={() => onNavigate?.("tracking")}
+          className="rounded-xl border border-[#cbd8e2] px-3.5 py-2.5 text-xs font-semibold text-[#506379] transition hover:bg-[#f0f5fa]"
+        >
+          {t("trackApplication", currentLanguage)}
+        </button>
+      </div>
     </div>
   );
 }
@@ -5378,7 +5205,7 @@ function AuthBenefit({
    EMI CALCULATOR
 ========================================================= */
 
-function EMICalculator({ onBack }) {
+function EMICalculator({ onBack, currentLanguage = "en", onLanguageChange }) {
   const [principal, setPrincipal] = useState("");
   const [interestRate, setInterestRate] = useState("6");
   const [tenure, setTenure] = useState("60");
@@ -5441,7 +5268,7 @@ function EMICalculator({ onBack }) {
             className="flex items-center gap-2 text-sm font-semibold text-[#53657b] transition hover:text-[#145c91]"
           >
             <ArrowLeft size={18} />
-            Back to Home
+            {t("backToHome", currentLanguage)}
           </button>
 
           <div className="flex items-center gap-3">
@@ -5454,22 +5281,25 @@ function EMICalculator({ onBack }) {
             </p>
           </div>
 
-          <span className="hidden text-xs font-semibold text-[#718096] sm:block">
-            Financial Calculator
-          </span>
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
+            />
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-[800px] px-6 py-12">
         <div className="max-w-3xl">
           <p className="text-[11px] font-bold tracking-[0.16em] text-[#1769a8]">
-            FINANCIAL CALCULATOR
+            {t("calculator", currentLanguage).toUpperCase()}
           </p>
           <h1 className="mt-3 font-serif text-4xl font-bold text-[#172a43] md:text-5xl">
-            Calculate your loan EMI.
+            {t("calcTitle", currentLanguage)}
           </h1>
           <p className="mt-4 text-base leading-7 text-[#66788d]">
-            Use the standard EMI formula to understand your monthly repayment before applying.
+            {t("calcSubtitle", currentLanguage)}
           </p>
         </div>
 
@@ -5477,7 +5307,7 @@ function EMICalculator({ onBack }) {
           <div className="grid gap-6 md:grid-cols-3">
             <div>
               <label className="mb-2 block text-[13px] font-bold text-[#2c4058]">
-                Loan Amount (₹)
+                {t("loanAmount", currentLanguage)}
               </label>
               <input
                 type="number"
@@ -5490,7 +5320,7 @@ function EMICalculator({ onBack }) {
 
             <div>
               <label className="mb-2 block text-[13px] font-bold text-[#2c4058]">
-                Interest Rate (% p.a.)
+                {t("interestRatePercent", currentLanguage)}
               </label>
               <input
                 type="number"
@@ -5504,7 +5334,7 @@ function EMICalculator({ onBack }) {
 
             <div>
               <label className="mb-2 block text-[13px] font-bold text-[#2c4058]">
-                Tenure (months)
+                {t("tenureMonths", currentLanguage)}
               </label>
               <input
                 type="number"
@@ -5531,11 +5361,11 @@ function EMICalculator({ onBack }) {
             {loading ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Calculating...
+                {t("calculating", currentLanguage)}
               </>
             ) : (
               <>
-                Calculate EMI
+                {t("calculateBtn", currentLanguage)}
                 <ArrowRight size={18} />
               </>
             )}
@@ -5545,29 +5375,29 @@ function EMICalculator({ onBack }) {
         {result && (
           <div className="mt-8 rounded-2xl border border-[#d4e8d4] bg-[#f0f8f0] p-7">
             <p className="text-[11px] font-bold tracking-[0.16em] text-[#3d7a42]">
-              EMI CALCULATION RESULT
+              {t("repaymentBreakdown", currentLanguage).toUpperCase()}
             </p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl bg-white p-5">
-                <p className="text-[11px] text-[#7a8998]">Monthly EMI</p>
+                <p className="text-[11px] text-[#7a8998]">{t("monthlyEmi", currentLanguage)}</p>
                 <p className="mt-1 font-serif text-3xl font-bold text-[#145c91]">
                   ₹{Number(result.monthly_emi).toLocaleString("en-IN")}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-5">
-                <p className="text-[11px] text-[#7a8998]">Total Interest</p>
+                <p className="text-[11px] text-[#7a8998]">{t("totalInterest", currentLanguage)}</p>
                 <p className="mt-1 font-serif text-3xl font-bold text-[#1b3148]">
                   ₹{Number(result.total_interest).toLocaleString("en-IN")}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-5">
-                <p className="text-[11px] text-[#7a8998]">Total Repayment</p>
+                <p className="text-[11px] text-[#7a8998]">{t("totalRepayment", currentLanguage)}</p>
                 <p className="mt-1 font-serif text-2xl font-bold text-[#1b3148]">
                   ₹{Number(result.total_repayment).toLocaleString("en-IN")}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-5">
-                <p className="text-[11px] text-[#7a8998]">Tenure</p>
+                <p className="text-[11px] text-[#7a8998]">{t("tenure", currentLanguage)}</p>
                 <p className="mt-1 font-serif text-2xl font-bold text-[#1b3148]">
                   {result.tenure_months} months
                 </p>
@@ -5590,7 +5420,7 @@ function EMICalculator({ onBack }) {
 ========================================================= */
 
 
-function PartnerLocator({ onBack }) {
+function PartnerLocator({ onBack, currentLanguage = "en", onLanguageChange }) {
   const [state, setState] = useState("");
   const [district, setDistrict] = useState("");
   const [partners, setPartners] = useState([]);
@@ -5675,7 +5505,7 @@ function PartnerLocator({ onBack }) {
     setMessage("");
 
     if (!state) {
-      setError("Please select a state.");
+      setError(t("selectStatePrompt", currentLanguage));
       return;
     }
 
@@ -5715,7 +5545,7 @@ function PartnerLocator({ onBack }) {
             className="flex items-center gap-2 text-sm font-semibold text-[#53657b] transition hover:text-[#145c91]"
           >
             <ArrowLeft size={18} />
-            Back to Home
+            {t("backToHome", currentLanguage)}
           </button>
 
           <div className="flex items-center gap-3">
@@ -5728,22 +5558,25 @@ function PartnerLocator({ onBack }) {
             </p>
           </div>
 
-          <span className="hidden text-xs font-semibold text-[#718096] sm:block">
-            Partner Locator
-          </span>
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
+            />
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-[1000px] px-6 py-12">
         <div className="max-w-3xl">
           <p className="text-[11px] font-bold tracking-[0.16em] text-[#1769a8]">
-            CHANNEL PARTNER LOCATOR
+            {t("partnerLocator", currentLanguage).toUpperCase()}
           </p>
           <h1 className="mt-3 font-serif text-4xl font-bold text-[#172a43] md:text-5xl">
-            Find a verified channel partner near you.
+            {t("partnerTitle", currentLanguage)}
           </h1>
           <p className="mt-4 text-base leading-7 text-[#66788d]">
-            Search by state and district to find verified NSFDC channel partners for your scheme application.
+            {t("partnerSubtitle", currentLanguage)}
           </p>
         </div>
 
@@ -5751,7 +5584,7 @@ function PartnerLocator({ onBack }) {
           <div className="grid gap-6 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-[13px] font-bold text-[#2c4058]">
-                State
+                {t("state", currentLanguage)}
               </label>
               <SelectField
                 label=""
@@ -5766,14 +5599,14 @@ function PartnerLocator({ onBack }) {
                       }))
                 }
                 helper={
-                  locationLoading ? "Loading states..." : undefined
+                  locationLoading ? t("loading", currentLanguage) : undefined
                 }
               />
             </div>
 
             <div>
               <label className="mb-2 block text-[13px] font-bold text-[#2c4058]">
-                District (optional)
+                {t("district", currentLanguage)}
               </label>
               <SelectField
                 label=""
@@ -5788,7 +5621,11 @@ function PartnerLocator({ onBack }) {
                       }))
                 }
                 helper={
-                  !state ? "Select a state first" : undefined
+                  !state
+                    ? t("selectStatePrompt", currentLanguage)
+                    : districtsList.length === 0
+                      ? t("loading", currentLanguage)
+                      : undefined
                 }
                 disabled={!state}
               />
@@ -5810,12 +5647,12 @@ function PartnerLocator({ onBack }) {
             {loading ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Searching...
+                {t("searchingPartners", currentLanguage)}
               </>
             ) : (
               <>
                 <Search size={16} />
-                Search Partners
+                {t("searchPartners", currentLanguage)}
               </>
             )}
           </button>
@@ -5938,7 +5775,8 @@ function AIAssistant({
   currentUser,
   lastSchemeResults,
   lastSchemeFormData,
-  initialLanguage = "en",
+  currentLanguage = "en",
+  onLanguageChange,
 }) {
   const detectNavigationFromText = (responseText) => {
     if (!responseText) return null;
@@ -6073,29 +5911,34 @@ function AIAssistant({
       )
     ) {
       context.eligible_schemes =
-        lastSchemeResults.primary.eligible.map(
-          (scheme) => ({
-            scheme_id:
-              scheme.scheme_id ||
-              scheme.id ||
-              "",
-            scheme_name:
-              scheme.scheme_name ||
-              scheme.name ||
-              "",
-            type: "PRIMARY",
-            reasons:
-              scheme.reasons || [],
-            financial_terms:
-              scheme.financial_terms ||
-              null,
-            source:
-              scheme.source ||
-              null,
-            required_documents:
-              scheme.required_documents ||
-              null,
-          }),
+        context.eligible_schemes.concat(
+          lastSchemeResults.primary.eligible.map(
+            (scheme) => ({
+              id:
+                scheme.code ||
+                scheme.id ||
+                "",
+              name:
+                scheme.name ||
+                scheme.scheme_name ||
+                "",
+              match_score:
+                scheme.match_score ??
+                null,
+              reasons:
+                scheme.reasons ||
+                [],
+              financial_terms:
+                scheme.financial_terms ||
+                null,
+              source:
+                scheme.source ||
+                null,
+              required_documents:
+                scheme.required_documents ||
+                null,
+            }),
+          ),
         );
     }
 
@@ -6105,20 +5948,34 @@ function AIAssistant({
       )
     ) {
       context.ineligible_schemes =
-        lastSchemeResults.primary.ineligible.map(
-          (scheme) => ({
-            scheme_id:
-              scheme.scheme_id ||
-              scheme.id ||
-              "",
-            scheme_name:
-              scheme.scheme_name ||
-              scheme.name ||
-              "",
-            type: "PRIMARY",
-            failures:
-              scheme.failures || [],
-          }),
+        context.ineligible_schemes.concat(
+          lastSchemeResults.primary.ineligible.map(
+            (scheme) => ({
+              id:
+                scheme.code ||
+                scheme.id ||
+                "",
+              name:
+                scheme.name ||
+                scheme.scheme_name ||
+                "",
+              reasons:
+                scheme.reasons ||
+                [],
+              failure_reasons:
+                scheme.failure_reasons ||
+                [],
+              criterion_status:
+                scheme.criterion_status ||
+                [],
+              financial_terms:
+                scheme.financial_terms ||
+                null,
+              source:
+                scheme.source ||
+                null,
+            }),
+          ),
         );
     }
 
@@ -6161,21 +6018,16 @@ function AIAssistant({
   };
 
 
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState(() => [
     {
       role: "assistant",
-      content:
-        "Hii! I am the Scheme Saathi AI Assistant.\n\nI can help you understand government schemes, eligibility, EMI and application guidance.\n\nWhat would you like to do?",
+      content: t("aiWelcome", currentLanguage),
     },
   ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState(
-    initialLanguage || "en",
-  );
-  const [showLangMenu, setShowLangMenu] = useState(false);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -6227,7 +6079,7 @@ function AIAssistant({
           headers,
           body: JSON.stringify({
             message: trimmed,
-            language: selectedLanguage,
+            language: currentLanguage,
             scheme_context:
               buildSchemeContext(),
           }),
@@ -6236,7 +6088,7 @@ function AIAssistant({
 
       if (!response.ok) {
         let errorMessage =
-          "AI Assistant is temporarily unavailable.";
+          "Unable to process AI request. Please try again.";
 
         try {
           const errorData =
@@ -6275,6 +6127,8 @@ function AIAssistant({
             data.ineligibility_explanations,
           application_guidance:
             data.application_guidance,
+          document_status:
+            data.document_status,
           disclaimer:
             data.disclaimer,
         },
@@ -6292,11 +6146,9 @@ function AIAssistant({
 
       if (
         data.language_used &&
-        data.language_used !== selectedLanguage
+        data.language_used !== currentLanguage
       ) {
-        setSelectedLanguage(
-          data.language_used,
-        );
+        onLanguageChange?.(data.language_used);
       }
     } catch (error) {
       setError(
@@ -6310,7 +6162,7 @@ function AIAssistant({
         {
           role: "assistant",
           content:
-            "I am unable to process your request at this time. The AI service may be temporarily unavailable. Please try again.",
+            "I could not complete your request at this moment. Please explore schemes directly or try again in a moment.",
         },
       ]);
 
@@ -6331,11 +6183,6 @@ function AIAssistant({
     }
   };
 
-  const currentLanguage =
-    AI_LANGUAGES.find(
-      (language) => language.code === selectedLanguage,
-    )?.display || "English";
-
   return (
     <div className="flex h-screen flex-col bg-[#f4f8fb]">
 
@@ -6348,7 +6195,7 @@ function AIAssistant({
             className="flex items-center gap-2 text-sm font-semibold text-[#53657b] transition hover:text-[#145c91]"
           >
             ←
-            <span>Back</span>
+            <span>{t("back", currentLanguage)}</span>
           </button>
 
           <div className="flex items-center gap-3">
@@ -6361,54 +6208,16 @@ function AIAssistant({
                 SCHEME SAATHI
               </p>
               <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#8090a0]">
-                AI Assistant
+                {t("aiAssistant", currentLanguage)}
               </p>
             </div>
           </div>
 
-          {/* Language selector */}
-          <div className="relative">
-
-            <button
-              onClick={() =>
-                setShowLangMenu((previous) => !previous)
-              }
-              className="flex items-center gap-2 rounded-lg border border-[#cfd8e3] bg-white px-3 py-2 text-[12px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb]"
-            >
-              <Globe2 size={14} />
-              <span className="hidden sm:inline">
-                {currentLanguage}
-              </span>
-              <ChevronDown size={12} />
-            </button>
-
-            {showLangMenu && (
-              <div className="absolute right-0 top-full z-50 mt-1 max-h-[320px] w-[220px] overflow-y-auto rounded-xl border border-[#d5e0e7] bg-white shadow-lg">
-
-                {AI_LANGUAGES.map((language) => (
-                  <button
-                    key={language.code}
-                    onClick={() => {
-                      setSelectedLanguage(language.code);
-                      setShowLangMenu(false);
-                    }}
-                    className={[
-                      "flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] transition hover:bg-[#f0f6fa]",
-                      selectedLanguage === language.code
-                        ? "bg-[#eef7fb] font-bold text-[#145c91]"
-                        : "text-[#34475d]",
-                    ].join(" ")}
-                  >
-                    {selectedLanguage === language.code && (
-                      <span className="text-[#145c91]">✓</span>
-                    )}
-
-                    <span>{language.display}</span>
-                  </button>
-                ))}
-
-              </div>
-            )}
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onLanguageChange={onLanguageChange}
+            />
           </div>
 
         </div>
@@ -6459,7 +6268,7 @@ function AIAssistant({
                         className="flex items-center gap-1.5 rounded-lg border border-[#d4e8d4] bg-[#f0f8f0] px-3 py-2 text-[12px] font-semibold text-[#3d7a42] transition hover:bg-[#e4f2e4]"
                       >
                         <BookOpen size={13} />
-                        Explore Schemes
+                        {t("exploreSchemes", currentLanguage)}
                       </button>
 
                       <button
@@ -6474,8 +6283,28 @@ function AIAssistant({
                         className="flex items-center gap-1.5 rounded-lg border border-[#dce4ea] bg-[#f7fafc] px-3 py-2 text-[12px] font-semibold text-[#145c91] transition hover:bg-[#eef7fb]"
                       >
                         <Search size={13} />
-                        Find My Schemes
+                        {t("findMyScheme", currentLanguage)}
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onNavigate("emi_calculator")}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#dce4ea] bg-[#f7fafc] px-3 py-2 text-[12px] font-semibold text-[#145c91] transition hover:bg-[#eef7fb]"
+                      >
+                        <Calculator size={13} />
+                        EMI Calculator
+                      </button>
+
+                      {isLoggedIn && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigate("documents")}
+                          className="flex items-center gap-1.5 rounded-lg border border-[#d4e8d4] bg-[#f0f8f0] px-3 py-2 text-[12px] font-semibold text-[#3d7a42] transition hover:bg-[#e4f2e4]"
+                        >
+                          <FileText size={13} />
+                          Documents
+                        </button>
+                      )}
 
                     </div>
                   )}
@@ -6843,6 +6672,72 @@ function AIAssistant({
                       </div>
                     )}
 
+                    {/* Document status */}
+                    {message.structured.document_status && (
+                      <div className="rounded-xl border border-[#d8e8d4] bg-[#f4faf0] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#3d7a42]">
+                          Document Status
+                        </p>
+
+                        <div className="mt-2">
+                          <div className="mb-2 flex items-center gap-2">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#e0ece0]">
+                              <div
+                                className="h-full rounded-full bg-[#3d7a42] transition-all"
+                                style={{
+                                  width: `${message.structured.document_status.completion_percentage || 0}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-bold text-[#3d7a42]">
+                              {message.structured.document_status.completion_percentage || 0}%
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-[#4a6b4e]">
+                            {message.structured.document_status.mandatory_uploaded || 0} of {message.structured.document_status.mandatory_total || 0} mandatory documents uploaded
+                          </p>
+
+                          {message.structured.document_status.missing_mandatory?.length > 0 && (
+                            <div className="mt-2 rounded-lg bg-white p-2">
+                              <p className="text-[10px] font-semibold text-[#a04040]">Missing mandatory documents:</p>
+                              <div className="mt-1 space-y-0.5">
+                                {message.structured.document_status.missing_mandatory.map((doc, i) => (
+                                  <p key={i} className="flex items-start gap-1.5 text-[11px] text-[#6a3030]">
+                                    <span>•</span>
+                                    <span>{doc}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {message.structured.document_status.uploaded?.length > 0 && (
+                            <div className="mt-2 rounded-lg bg-white p-2">
+                              <p className="text-[10px] font-semibold text-[#3d7a42]">Uploaded:</p>
+                              <div className="mt-1 space-y-0.5">
+                                {message.structured.document_status.uploaded.map((doc, i) => (
+                                  <p key={i} className="flex items-center gap-1.5 text-[11px] text-[#4a6b4e]">
+                                    <span className={doc.verification_status === "verified" ? "text-green-600" : "text-yellow-600"}>
+                                      {doc.verification_status === "verified" ? "✓" : "⏳"}
+                                    </span>
+                                    <span>{doc.document_name}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => onNavigate("documents")}
+                            className="mt-2 flex items-center gap-1.5 rounded-lg border border-[#c8dcc4] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#3d7a42] transition hover:bg-[#f0f8f0]"
+                          >
+                            Open Document Center
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* AI disclaimer */}
                     {message.structured.disclaimer && (
                       <div className="rounded-lg border border-[#e3e8ed] bg-[#f8fafb] p-3 text-[10px] leading-4 text-[#8a97a3]">
@@ -6930,7 +6825,7 @@ function AIAssistant({
                         className="flex items-center gap-1.5 rounded-lg border border-[#d4e8d4] bg-[#f0f8f0] px-3 py-2 text-[12px] font-semibold text-[#3d7a42] transition hover:bg-[#e4f2e4]"
                       >
                         <BookOpen size={13} />
-                        Explore Schemes
+                        {t("exploreSchemes", currentLanguage)}
                       </button>
                     )}
 
@@ -6947,7 +6842,7 @@ function AIAssistant({
                         className="flex items-center gap-1.5 rounded-lg border border-[#dce4ea] bg-[#f7fafc] px-3 py-2 text-[12px] font-semibold text-[#145c91] transition hover:bg-[#eef7fb]"
                       >
                         <Search size={13} />
-                        Find My Schemes
+                        {t("findMyScheme", currentLanguage)}
                       </button>
                     )}
 
@@ -6968,7 +6863,7 @@ function AIAssistant({
                   className="animate-spin text-[#145c91]"
                 />
                 <span className="text-[13px] text-[#718096]">
-                  Thinking...
+                  {t("thinking", currentLanguage)}
                 </span>
               </div>
             </div>
@@ -6998,7 +6893,7 @@ function AIAssistant({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about schemes, eligibility, EMI, partners..."
+              placeholder={t("aiPlaceholder", currentLanguage)}
               rows={1}
               className="min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[14px] text-[#1e3048] outline-none placeholder:text-[#a1acb6]"
             />
@@ -7019,7 +6914,7 @@ function AIAssistant({
                   className="animate-spin"
                 />
               ) : (
-                <Send size={18} />
+                <Send size={18} className="rtl:rotate-180" />
               )}
             </button>
 
@@ -7031,7 +6926,7 @@ function AIAssistant({
             </p>
 
             <p className="text-[10px] text-[#a1acb6]">
-              Multilingual support
+              {t("multilingualSupport", currentLanguage)}
             </p>
           </div>
 

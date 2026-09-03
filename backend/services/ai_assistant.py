@@ -12,10 +12,16 @@ AI is NOT responsible for: eligibility, EMI calculation, partner matching.
 import os
 import json
 import logging
+import asyncio
+import warnings
+from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+
+warnings.filterwarnings("ignore", message=".*automatic function calling.*")
 
 from services.languages import (
     get_language_info,
@@ -25,8 +31,55 @@ from services.languages import (
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+
+def get_gemini_api_key() -> str:
+    """Retrieve GEMINI_API_KEY dynamically from the environment, checking .env if needed."""
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        here = Path(__file__).resolve()
+        possible_envs = [
+            here.parent.parent / ".env",          # backend/.env
+            here.parent.parent.parent / ".env",   # root .env
+            Path.cwd() / ".env",
+        ]
+        for env_path in possible_envs:
+            if env_path.exists():
+                load_dotenv(env_path, override=True)
+                key = os.environ.get("GEMINI_API_KEY", "").strip()
+                if key:
+                    break
+    return key
+
+VALID_GEMINI_MODELS = {
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+}
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+
+
+def get_validated_gemini_model() -> str:
+    """Validate configured GEMINI_MODEL and return a supported model name."""
+    raw = os.environ.get("GEMINI_MODEL", "").strip()
+    if not raw:
+        return DEFAULT_GEMINI_MODEL
+    if raw in VALID_GEMINI_MODELS:
+        return raw
+    if raw.startswith("gemini-") and not raw.startswith("gemini-3."):
+        return raw
+    logger.warning(
+        "Configured GEMINI_MODEL '%s' is not recognized or valid. Defaulting to '%s'.",
+        raw,
+        DEFAULT_GEMINI_MODEL,
+    )
+    return DEFAULT_GEMINI_MODEL
+
+
+GEMINI_MODEL = get_validated_gemini_model()
+
 
 SYSTEM_PROMPT = """You are Scheme Saathi AI Assistant. You help marginalized entrepreneurs, especially eligible Scheduled Caste applicants, understand government concessional financial schemes.
 
@@ -34,6 +87,18 @@ STRICT DOMAIN:
 - You are NOT a general-purpose chatbot.
 - Stay ONLY within Scheme Saathi and supported government-scheme assistance.
 - For unrelated topics (entertainment, movies, jokes, general coding, unrelated politics/news/weather, general knowledge), politely state you are designed specifically for Scheme Saathi and government-scheme assistance.
+
+GREETING RULES (CRITICAL):
+- The welcome greeting (e.g. "Hi! How can I help you today?") is shown ONLY once at the very start of a new conversation by the frontend.
+- You must NEVER repeat or generate a greeting yourself. After the initial greeting, respond directly to the user's message.
+- Do NOT start your response with greetings like "Hello!", "Namaste!", "Hi there!" unless the user explicitly greeted you first.
+- Jump straight to answering the user's question or guiding them.
+
+CONVERSATION FLOW:
+- After the initial greeting, respond directly to what the user says.
+- Be natural, polite, and contextually relevant.
+- Use the user's selected language throughout the conversation.
+- The AI is a guidance and explanation layer over Scheme Saathi's existing deterministic systems.
 
 NAVIGATION AND USER FLOW:
 - When a user asks which schemes they are eligible for, or asks about schemes in general, guide them to the appropriate action.
@@ -44,6 +109,22 @@ NAVIGATION AND USER FLOW:
 - You may suggest "Find My Schemes" for personalized eligibility checking.
 - If the user asks about a scheme that is NOT in their previous checked history but IS available in Scheme Saathi, explain it using verified data and include navigation: {"navigation": {"explore": true}} to let them browse all schemes.
 - Do NOT claim the user is eligible or ineligible without rule-engine data in the context.
+
+APPLICATION GUIDANCE (CRITICAL):
+- When the user wants to apply for a scheme, provide the application guidance available from the backend.
+- Explain the relevant application process, required steps, and official links.
+- Scheme rates, limits, application steps and document requirements must come from verified backend/scheme data.
+- If information is unavailable or unverified, explicitly state that it is unavailable/unverified instead of generating an answer.
+- Guide the user to the Document Center for uploading required documents.
+- Application Tracking is admin/owner-only and is NOT available through this AI assistant. Do not provide tracking status or tracking navigation to users.
+
+DOCUMENT MANAGEMENT (CRITICAL):
+- When the user asks about documents, use the DOCUMENT STATUS data supplied in context from the backend.
+- Guide the user about required, uploaded, pending or missing documents based ONLY on backend data.
+- Do NOT invent document requirements.
+- Tell users they can upload documents through the Document Center.
+- Document verification is handled by the App Owner/Admin — the AI does not verify documents.
+- If document status is not available (user not logged in), suggest they sign in to check their document status.
 
 AUTHENTICATED VS UNAUTHENTICATED:
 - If USER PROFILE is provided in context, the user is authenticated. Use their profile data for personalized responses.
@@ -119,12 +200,6 @@ OUT-OF-SCOPE SCHEMES:
 - Do NOT show: score, benefits, documents, steps, EMI, partner info for out-of-scope schemes.
 - Never invent an out-of-scope scheme or URL.
 
-APPLICATION PROCESS:
-- For eligible Scheme Saathi-supported schemes, when user asks "How do I apply?", "What should I do next?", "Complete process batao", explain the COMPLETE start-to-end application process using verified data: official website/portal, where to start, registration/login if verified, form steps, required information, verified documents, submission, verification/scrutiny if verified, Channel Partner route where applicable, next step.
-- Never invent steps, documents, processing times, or guarantees.
-- If the COMPLETE application process is NOT verified in the available Scheme Saathi data, clearly state that, then use the deterministic Channel Partner Locator output to recommend a verified nearby eligible partner with: partner name, type, complete address, contact number, distance, official website/contact link if verified.
-- The AI must NEVER invent or independently choose a partner.
-
 FINANCIAL CALCULATOR:
 - You must NEVER calculate EMI, interest, or repayment yourself.
 - Only explain deterministic calculator output supplied to you.
@@ -156,7 +231,8 @@ DATA HIERARCHY:
 2. Deterministic rule-engine output
 3. Deterministic calculator output
 4. Deterministic partner-locator output
-5. Other explicitly approved verified sources
+5. Document status from backend database
+6. Other explicitly approved verified sources
 
 Never use unsupported model knowledge as verified Scheme Saathi data.
 When information is unavailable, say so clearly.
@@ -176,6 +252,7 @@ def _build_user_context(
     partner_output: dict[str, Any] | None,
     ineligibility_query: dict[str, Any] | None,
     out_of_scope_schemes: list[dict[str, Any]] | None = None,
+    document_status: dict[str, Any] | None = None,
 ) -> str:
     """Build the user context block for the LLM prompt."""
     parts = []
@@ -319,7 +396,34 @@ def _build_user_context(
             parts.append("  No verified eligible Channel Partners found.")
         parts.append("")
 
-    return "\n".join(parts)
+    if document_status:
+        parts.append("DOCUMENT STATUS (from backend):")
+        parts.append(f"- Completion: {document_status.get('completion_percentage', 0)}%")
+        parts.append(f"- Mandatory uploaded: {document_status.get('mandatory_uploaded', 0)}/{document_status.get('mandatory_total', 0)}")
+        missing = document_status.get("missing_mandatory", [])
+        if missing:
+            parts.append(f"- Missing mandatory documents: {', '.join(missing)}")
+        uploaded = document_status.get("uploaded", [])
+        if uploaded:
+            parts.append("- Uploaded documents:")
+            for doc in uploaded:
+                status = doc.get("verification_status", "pending")
+                parts.append(f"  * {doc.get('document_name', doc.get('document_type', 'Unknown'))} — Status: {status}")
+        all_reqs = document_status.get("all_requirements", [])
+        if all_reqs:
+            parts.append("- All required documents:")
+            for req in all_reqs:
+                upload_status = "uploaded" if req.get("uploaded") else "NOT uploaded"
+                mandatory_tag = " (mandatory)" if req.get("mandatory") else " (optional)"
+                parts.append(f"  * {req.get('name', 'Unknown')}{mandatory_tag} — {upload_status}")
+        parts.append("")
+
+    full_context = "\n".join(parts)
+    max_chars = 12000
+    if len(full_context) > max_chars:
+        full_context = full_context[:max_chars] + "\n...[Context truncated to maintain safe prompt size]"
+
+    return full_context
 
 
 def _detect_language_from_text(text: str) -> str:
@@ -425,6 +529,19 @@ def _detect_language_from_text(text: str) -> str:
     return "und"
 
 
+def _is_transient_error(error: Exception) -> bool:
+    """Check if an exception represents a transient failure eligible for retry."""
+    err_str = str(error).lower()
+    transient_indicators = [
+        "503", "502", "504", "500", "429",
+        "service unavailable", "resource_exhausted", "quota",
+        "rate limit", "temporarily unavailable", "deadline_exceeded",
+        "timeout", "timed out", "connection reset", "connection refused",
+        "broken pipe", "network error", "try again",
+    ]
+    return any(indicator in err_str for indicator in transient_indicators)
+
+
 def _detect_language(message: str, user_language: str | None) -> tuple[str, bool]:
     """Detect the language of the user message.
 
@@ -433,16 +550,20 @@ def _detect_language(message: str, user_language: str | None) -> tuple[str, bool
     If the detected language is 'und' (undefined), keep the user's
     explicit selection; never force English.
     """
-    if user_language and is_supported_language(user_language):
-        return user_language, False
+    if user_language:
+        normalized_lang = user_language.lower().strip()
+        if is_supported_language(normalized_lang):
+            return normalized_lang, False
 
     detected = _detect_language_from_text(message)
 
     # 'und' means the script was not recognised; keep the user's
     # explicit language selection rather than defaulting to English.
     if detected == "und":
-        if user_language and is_supported_language(user_language):
-            return user_language, False
+        if user_language:
+            normalized_lang = user_language.lower().strip()
+            if is_supported_language(normalized_lang):
+                return normalized_lang, False
         return "en", True
 
     return detected, True
@@ -459,7 +580,8 @@ async def _call_gemini(
     system prompt is treated as a system-level instruction by the model
     rather than appearing as a user message.
     """
-    if not GEMINI_API_KEY:
+    api_key = get_gemini_api_key()
+    if not api_key:
         logger.error("GEMINI_API_KEY environment variable is not set")
         return None
 
@@ -474,10 +596,10 @@ async def _call_gemini(
 
     for attempt in range(max_retries):
         try:
-            client = genai.Client(api_key=GEMINI_API_KEY)
+            client = genai.Client(api_key=api_key)
 
             response = client.models.generate_content(
-                model=GEMINI_MODEL,
+                model=get_validated_gemini_model(),
                 contents=types.Content(
                     role="user",
                     parts=[types.Part.from_text(text=full_user_content)],
@@ -500,9 +622,13 @@ async def _call_gemini(
 
         except Exception as e:
             error_str = str(e)
-            if attempt < max_retries - 1 and "503" in error_str:
-                logger.warning("Gemini API unavailable (attempt %d/%d), retrying...", attempt + 1, max_retries)
-                import asyncio
+            if attempt < max_retries - 1 and _is_transient_error(e):
+                logger.warning(
+                    "Gemini API transient failure (attempt %d/%d): %s. Retrying in %.2fs...",
+                    attempt + 1,
+                    max_retries,
+                    error_str,
+                )
                 await asyncio.sleep(retry_delay)
                 retry_delay *= 2
                 continue
@@ -604,13 +730,15 @@ def _parse_ai_ranking(
             continue
         seen_ids.add(scheme_id)
 
-        # Validate score — must be numeric 0-100
-        if not isinstance(score, (int, float)) or score < 1 or score > 100:
+        # Validate score — must be numeric 1-100; do not fake a 50 score
+        validated_score: int | None = None
+        if isinstance(score, (int, float)) and 1 <= score <= 100:
+            validated_score = int(score)
+        else:
             logger.warning(
-                "Invalid score %s for scheme %s, defaulting to 50",
+                "Invalid score %s for scheme %s; recording without misleading default score",
                 score, scheme_id,
             )
-            score = 50
 
         # Validate URL — strip if not from verified backend data
         if official_url:
@@ -626,7 +754,7 @@ def _parse_ai_ranking(
         validated.append({
             "scheme_id": scheme_id,
             "scheme_name": scheme.get("scheme_name") or scheme.get("name", ""),
-            "score": int(score),
+            "score": validated_score,
             "reason": reason if isinstance(reason, str) else "",
             "official_url": official_url,
         })
@@ -635,8 +763,11 @@ def _parse_ai_ranking(
         logger.warning("No valid entries in AI ranking")
         return None
 
-    # Sort by score descending (highest = best fit)
-    validated.sort(key=lambda x: x["score"], reverse=True)
+    # Sort by score descending (highest = best fit, None at end)
+    validated.sort(
+        key=lambda x: (x["score"] is not None, x["score"] if x["score"] is not None else -1),
+        reverse=True,
+    )
 
     return validated
 
@@ -664,6 +795,8 @@ def _extract_structured_data(
     partner_output: dict[str, Any] | None,
     ineligibility_query: dict[str, Any] | None,
     out_of_scope_schemes: list[dict[str, Any]] | None = None,
+    user_asked_partner: bool = False,
+    document_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Extract structured response fields, using AI ranking when available.
 
@@ -672,7 +805,7 @@ def _extract_structured_data(
     Validates scheme IDs, scores, and URLs against backend data.
     """
     result: dict[str, Any] = {
-        "disclaimer": _build_disclaimer(),
+        "disclaimer": _build_disclaimer() if (eligible_schemes or emi_output) else "",
     }
 
     if eligible_schemes and len(eligible_schemes) > 0:
@@ -737,7 +870,7 @@ def _extract_structured_data(
     if emi_output:
         result["emi_projection"] = emi_output
 
-    if partner_output:
+    if partner_output and user_asked_partner:
         result["matched_channel_partners"] = partner_output.get("partners", [])
 
     if ineligibility_query:
@@ -799,7 +932,341 @@ def _extract_structured_data(
         if guidance_items:
             result["application_guidance"] = guidance_items
 
+    if document_status:
+        result["document_status"] = document_status
+
     return result
+
+
+OUT_OF_SCOPE_NATIONAL_SCHEMES = [
+    {
+        "name": "Pradhan Mantri MUDRA Yojana (PMMY)",
+        "official_url": "https://www.mudra.org.in",
+        "reason": "National collateral-free loan up to ₹10–20 Lakh open to General category and all citizens.",
+        "scheme_id": "PMMY",
+    },
+    {
+        "name": "Prime Minister Employment Generation Programme (PMEGP)",
+        "official_url": "https://www.kviconline.gov.in/pmegpeportal",
+        "reason": "Credit-linked capital subsidy for setting up new micro-enterprises across all categories.",
+        "scheme_id": "PMEGP",
+    },
+    {
+        "name": "PM SVANidhi (Street Vendor AtmaNirbhar Nidhi)",
+        "official_url": "https://pmsvanidhi.mohua.gov.in",
+        "reason": "Collateral-free working capital loan for small traders and vendors across all categories.",
+        "scheme_id": "PMSVANIDHI",
+    },
+    {
+        "name": "Credit Guarantee Fund Trust for Micro and Small Enterprises (CGTMSE)",
+        "official_url": "https://www.cgtmse.in",
+        "reason": "Collateral-free business credit facility through commercial banks for all categories.",
+        "scheme_id": "CGTMSE",
+    },
+    {
+        "name": "Stand-Up India Scheme",
+        "official_url": "https://www.standupmitra.in",
+        "reason": "Bank loans between ₹10 Lakh and ₹1 Crore for women entrepreneurs of any category.",
+        "scheme_id": "STANDUPINDIA",
+    },
+]
+
+
+def _detect_navigation_from_intent(message: str, reply: str) -> dict[str, bool] | None:
+    msg_lower = (message or "").lower().strip()
+    reply_lower = (reply or "").lower().strip()
+    combined = f"{msg_lower} {reply_lower}"
+
+    nav: dict[str, bool] = {}
+    if (
+        "eligibility criteria are mentioned in this section" in combined
+        or "पात्रता मानदंड इस अनुभाग में" in combined
+        or "explore schemes" in combined
+        or "explore" in msg_lower
+        or "योजनाएं देखें" in combined
+    ):
+        nav["explore"] = True
+
+    if (
+        "locating channel partners" in combined
+        or "partner locator" in combined
+        or "चैनल पार्टनर खोजने" in combined
+        or "nearby partner" in msg_lower
+        or "channel partner" in msg_lower
+    ):
+        nav["partner"] = True
+
+    if (
+        "find my schemes" in combined
+        or "पात्रता जांचें" in combined
+        or "new business" in msg_lower
+        or "start business" in msg_lower
+    ):
+        nav["finder"] = True
+
+    return nav or None
+
+
+def _build_intelligent_assistant_reply(
+    message: str,
+    language: str,
+    user_profile: dict[str, Any] | None = None,
+    eligible_schemes: list[dict[str, Any]] | None = None,
+    ineligible_schemes: list[dict[str, Any]] | None = None,
+    emi_output: dict[str, Any] | None = None,
+    partner_output: dict[str, Any] | None = None,
+    ineligibility_query: dict[str, Any] | None = None,
+    out_of_scope_schemes: list[dict[str, Any]] | None = None,
+) -> tuple[str, dict[str, bool] | None, list[dict[str, Any]] | None]:
+    """Generate an intelligent, context-aware assistant reply with navigation and out-of-scope guidance."""
+    lang = (language or "en").lower().strip()
+    msg = (message or "").lower().strip()
+
+    # 1. Out-of-Scope Category check (e.g. General category)
+    out_of_scope_keywords = [
+        "general category", "general", "open category", "general wale",
+        "general loan", "unreserved", "general schemes", "gen category",
+        "सामान्य वर्ग", "सामान्य", "जनरल"
+    ]
+    is_out_of_scope_category = any(k in msg for k in out_of_scope_keywords)
+
+    # 2. Eligibility Criteria inquiry
+    eligibility_keywords = [
+        "eligibility criteria", "eligibility", "eligibilty", "criteria",
+        "पात्रता मानदंड", "पात्रता", "योग्यता", "शर्तें", "who is eligible", "who can apply", "qualify"
+    ]
+    is_eligibility_inquiry = (
+        any(k in msg for k in eligibility_keywords)
+        and not is_out_of_scope_category
+        and not ineligibility_query
+    )
+
+    # 3. Channel Partner inquiry
+    partner_keywords = [
+        "channel partner", "channel partners", "partner", "partners", "locator", "nearby",
+        "locate", "where to apply", "branch", "branches", "office",
+        "चैनल पार्टनर", "पार्टनर", "शाखा", "निकटतम", "कहाँ आवेदन"
+    ]
+    is_partner_inquiry = any(k in msg for k in partner_keywords)
+
+    # 4. Business Loan inquiry
+    biz_keywords = [
+        "business", "new business", "start business", "starting business",
+        "enterprise", "shop", "startup", "व्यापार", "व्यवसाय", "नया व्यापार",
+        "दुकान", "उद्यम", "रोजगार"
+    ]
+    is_business_inquiry = (
+        any(k in msg for k in biz_keywords)
+        and not is_out_of_scope_category
+        and any(
+            k in msg
+            for k in [
+                "loan", "loans", "scheme", "schemes", "ऋण", "योजना", "लोन",
+                "apply", "चाहिए", "start", "starting", "check", "know"
+            ]
+        )
+    )
+
+    # 5. EMI inquiry
+    is_emi = any(
+        k in msg for k in [
+            "emi", "calculator", "calculate", "installment", "monthly payment",
+            "repayment", "किस्त", "ईएमआई", "गणना", "ब्याज", "किश्त"
+        ]
+    )
+
+    # 6. Document inquiry
+    is_docs = any(
+        k in msg for k in [
+            "doc", "document", "documents", "certificate", "paper", "proof",
+            "दस्तावेज़", "कागज़", "प्रमाण", "सर्टिफिकेट", "நதி", "নথি"
+        ]
+    )
+
+    # 7. Pure Greeting
+    is_pure_greeting = msg in [
+        "hi", "hello", "hey", "namaste", "namaskar", "pranam", "helo",
+        "नमस्ते", "नमस्कार", "प्रणाम", "வணக்கம்", "নমস্কার", "నమస్కారం"
+    ]
+
+    is_explore = any(
+        k in msg for k in ["explore", "all schemes", "browse", "सब योजनाएं", "योजनाएं देखें", "সব স্কিম", "திட்டங்கள்"]
+    )
+
+    is_indic = lang in ["hi", "bn", "ta", "te", "mr", "gu", "ne", "sa", "mai", "sat", "doi", "brx", "kok", "pa", "or", "as", "ur"]
+
+    # ==================== INTENT HANDLING ====================
+
+    # Ineligibility explanation for a queried scheme
+    if ineligibility_query:
+        scheme_name = ineligibility_query.get("scheme_name") or ineligibility_query.get("scheme_id", "Scheme")
+        reasons = ineligibility_query.get("reasons", [])
+        reason_str = ", ".join(reasons) if reasons else ("पात्रता मानदंड" if is_indic else "eligibility requirements")
+        if is_indic:
+            return (
+                f"**{scheme_name}** के लिए आपकी प्रोफ़ाइल इसलिए मेल नहीं खाती: {reason_str}। आप अपनी जानकारी अपडेट कर सकते हैं या नीचे दी गई अन्य उपलब्ध योजनाओं की जांच कर सकते हैं।",
+                {"explore": True},
+                None,
+            )
+        return (
+            f"**{scheme_name}** was not matched due to: {reason_str}. You can review the requirements or explore other eligible concessional schemes below.",
+            {"explore": True},
+            None,
+        )
+
+    # Feature 1: Out-of-Scope Category (General Category, etc.)
+    if is_out_of_scope_category:
+        if is_indic:
+            reply = (
+                "स्कीम साथी की रियायती ऋण योजनाएं (NSFDC के तहत) विशेष रूप से अनुसूचित जाति (SC) वर्ग (तथा विश्वास योजना के तहत ओबीसी व सफाई कर्मचारियों) के लिए हैं। सामान्य वर्ग (General Category) के लिए रियायती योजनाएं NSFDC के अंतर्गत नहीं आती हैं।\n\n"
+                "सामान्य वर्ग व सभी नागरिकों के लिए उपलब्ध प्रमुख राष्ट्रीय सरकारी योजनाएं निम्नलिखित हैं:\n"
+                "1. **प्रधानमंत्री मुद्रा योजना (PMMY)**: सूक्ष्म व लघु व्यवसायों के लिए ₹10–20 लाख तक का संपार्श्विक-मुक्त (बिना गारंटी) ऋण।\n"
+                "   - आधिकारिक वेबसाइट: https://www.mudra.org.in\n"
+                "2. **प्रधानमंत्री रोजगार सृजन कार्यक्रम (PMEGP)**: नए सूक्ष्म उद्यम स्थापित करने के लिए सब्सिडी-युक्त ऋण।\n"
+                "   - आधिकारिक वेबसाइट: https://www.kviconline.gov.in/pmegpeportal\n"
+                "3. **पीएम स्वनिधि (PM SVANidhi)**: छोटे व्यापारियों व विक्रेताओं के लिए कार्यशील पूंजी ऋण।\n"
+                "   - आधिकारिक वेबसाइट: https://pmsvanidhi.mohua.gov.in\n"
+                "4. **Credit Guarantee Fund Trust for Micro and Small Enterprises (CGTMSE)**: सूक्ष्म एवं लघु उद्यमों के लिए संपार्श्विक-मुक्त ऋण गारंटी।\n"
+                "   - आधिकारिक वेबसाइट: https://www.cgtmse.in\n"
+                "5. **स्टैंड-अप इंडिया (Stand-Up India)**: किसी भी वर्ग की महिला उद्यमियों के लिए ₹10 लाख से ₹1 करोड़ तक का बैंक ऋण।\n"
+                "   - आधिकारिक वेबसाइट: https://www.standupmitra.in\n\n"
+                "कृपया इसे देखें, क्योंकि यह मेरे दायरे से बाहर है।"
+            )
+        else:
+            reply = (
+                "Scheme Saathi concessional credit schemes under NSFDC are specifically dedicated to Scheduled Caste (SC) beneficiaries (with secondary interest subvention under VISVAS for OBC and Safai Karamcharis). Concessional credit schemes for the General category are not directly covered under NSFDC.\n\n"
+                "However, the following central government loan schemes are available for the General category and all citizens:\n"
+                "1. **Pradhan Mantri MUDRA Yojana (PMMY)**: Collateral-free micro-enterprise loans up to ₹10–20 Lakh (Shishu, Kishore, Tarun) for all categories.\n"
+                "   - Official Website: https://www.mudra.org.in\n"
+                "2. **Prime Minister Employment Generation Programme (PMEGP)**: Credit-linked capital subsidy programme for establishing new micro-enterprises across all categories.\n"
+                "   - Official Website: https://www.kviconline.gov.in/pmegpeportal\n"
+                "3. **PM SVANidhi**: Working capital loans up to ₹50,000 for street vendors and small micro-entrepreneurs.\n"
+                "   - Official Website: https://pmsvanidhi.mohua.gov.in\n"
+                "4. **Credit Guarantee Fund Trust for Micro and Small Enterprises (CGTMSE)**: Collateral-free business credit facility through commercial banks.\n"
+                "   - Official Website: https://www.cgtmse.in\n"
+                "5. **Stand-Up India Scheme**: Bank loans between ₹10 Lakh and ₹1 Crore for women entrepreneurs of any category.\n"
+                "   - Official Website: https://www.standupmitra.in\n\n"
+                "Please refer to this, as it is out of my scope."
+            )
+        return (reply, {"explore": True}, OUT_OF_SCOPE_NATIONAL_SCHEMES)
+
+    # Feature 2: Eligibility Criteria question
+    if is_eligibility_inquiry:
+        if is_indic:
+            reply = "सभी योजनाओं के पात्रता मानदंड इस अनुभाग में दिए गए हैं। कृपया इस अनुभाग को देखें।"
+        else:
+            reply = "All schemes eligibility criteria are mentioned in this section. Please refer to this section."
+        return (reply, {"explore": True}, None)
+
+    # Feature 3: Channel Partner question
+    if is_partner_inquiry:
+        if is_indic:
+            reply = "चैनल पार्टनर खोजने के लिए कृपया इस अनुभाग को देखें।"
+        else:
+            reply = "Please refer to this section for locating channel partners."
+        return (reply, {"partner": True}, None)
+
+    # Feature 4: Business Loan question
+    if is_business_inquiry:
+        if is_indic:
+            reply = (
+                "नया व्यवसाय शुरू करने या व्यापार विस्तार के लिए, स्कीम साथी एनएसएफडीसी (NSFDC) के तहत अनुसूचित जाति (SC) वर्ग (वार्षिक पारिवारिक आय ₹5 लाख तक) के लिए निम्नलिखित रियायती ऋण योजनाएं प्रदान करता है:\n\n"
+                "1. **टर्म लोन (सावधि ऋण - TL)**: ₹50 लाख तक की परियोजना लागत (ऋण ₹45 लाख तक) 8% वार्षिक ब्याज दर पर।\n"
+                "2. **उद्यम निधि योजना (UNY)**: ₹5 लाख तक की परियोजना लागत (ऋण ₹4.50 लाख तक) 13%–15% वार्षिक ब्याज दर पर।\n"
+                "3. **माइक्रो फाइनेंस योजना (MFS)**: ₹1.40 लाख तक की परियोजना लागत (ऋण ₹1.25 लाख तक) 6.5% वार्षिक ब्याज दर पर।\n"
+                "4. **आजीविका माइक्रो-फाइनेंस योजना (AMY)**: ₹1.25 लाख तक का ऋण 15% वार्षिक ब्याज दर पर एनबीएफसी-एमएफआई के माध्यम से।\n\n"
+                "आप नीचे दिए गए बटनों का उपयोग करके अपनी पात्रता जांच सकते हैं या सभी योजनाओं का विवरण देख सकते हैं।"
+            )
+        else:
+            reply = (
+                "For starting or expanding a new business, Scheme Saathi offers the following verified concessional credit schemes under NSFDC (for Scheduled Caste beneficiaries with annual family income up to ₹5 Lakh):\n\n"
+                "1. **Term Loan (TL)**: Concessional loan up to ₹45 Lakh (project cost up to ₹50 Lakh) at 8% annual interest for viable income-generating business projects.\n"
+                "2. **Udyam Nidhi Yojana (UNY)**: Loan up to ₹4.50 Lakh (project cost up to ₹5 Lakh) at 13%–15% annual interest for micro/small enterprises.\n"
+                "3. **Micro Finance Scheme (MFS)**: Loan up to ₹1.25 Lakh (project cost up to ₹1.40 Lakh) at 6.5% annual interest for petty business and micro-units.\n"
+                "4. **Aajeevika Micro-Finance Yojana (AMY)**: Loan up to ₹1.25 Lakh at 15% annual interest through accredited NBFC-MFIs.\n\n"
+                "You can check your eligibility using **Find My Schemes** or browse complete financial terms in **Explore Schemes** below."
+            )
+        return (reply, {"explore": True, "finder": True}, None)
+
+    # Feature 5: EMI Calculation
+    if is_emi and emi_output:
+        scheme_name = emi_output.get("scheme_name", "the selected scheme")
+        principal = emi_output.get("loan_amount") or emi_output.get("principal", 0)
+        rate = emi_output.get("interest_rate_percent") or emi_output.get("annual_interest_rate_percent", 0)
+        monthly_emi = emi_output.get("monthly_emi", 0)
+        tenure = emi_output.get("tenure_months", 0)
+        if is_indic:
+            reply = (
+                f"आपके ऋण अनुरोध के लिए ईएमआई गणना तैयार है। **{scheme_name}** के अंतर्गत ₹{principal:,.0f} के ऋण पर {rate}% वार्षिक ब्याज दर से आपकी अनुमानित मासिक ईएमआई ₹{monthly_emi:,.0f} होगी (अवधि: {tenure} महीने)। विस्तृत चुकौती विवरण नीचे प्रदर्शित किया गया है।"
+            )
+        else:
+            reply = (
+                f"Here is the EMI projection for your requested loan. Under **{scheme_name}**, for a loan of ₹{principal:,.0f} at {rate}% annual interest, your estimated monthly EMI is ₹{monthly_emi:,.0f} over a tenure of {tenure} months. A detailed breakdown is shown below."
+            )
+        return (reply, {"calculator": True}, None)
+
+    # Feature 6: Documents
+    if is_docs:
+        if is_indic:
+            reply = (
+                "एनएसएफडीसी (NSFDC) की रियायती योजनाओं के लिए मुख्य आवश्यक दस्तावेज़ निम्नलिखित हैं:\n"
+                "1. **जाति प्रमाण पत्र**: सक्षम प्राधिकारी द्वारा जारी वैध अनुसूचित जाति (SC) प्रमाण पत्र।\n"
+                "2. **आय प्रमाण पत्र**: सक्षम अधिकारी द्वारा जारी वार्षिक पारिवारिक आय प्रमाण पत्र (वार्षिक आय ₹5 लाख तक)।\n"
+                "3. **पहचान एवं पता प्रमाण**: आधार कार्ड, वोटर आईडी या राशन कार्ड।\n"
+                "4. **परियोजना / व्यवसाय दस्तावेज**: डीपीआर (DPR) या लागत अनुमान (जहां लागू हो)।\n"
+                "5. **शिक्षा ऋण के लिए**: मान्यता प्राप्त संस्थान का प्रवेश पत्र और फीस संरचना।"
+            )
+        else:
+            reply = (
+                "The key required documents for NSFDC concessional schemes are:\n"
+                "1. **Valid Caste Certificate**: SC certificate issued by a competent government authority.\n"
+                "2. **Income Proof**: Certificate verifying annual family income up to ₹5 lakh.\n"
+                "3. **Identity & Address Proof**: Aadhaar Card, Voter ID, Ration Card, etc.\n"
+                "4. **Business / Project Documents**: DPR or cost estimates (where applicable).\n"
+                "5. **For Educational Loans**: Admission offer letter and course fee structure."
+            )
+        return (reply, {"documents": True}, None)
+
+    # Feature 7: Matched Schemes Available from Profile
+    if eligible_schemes and len(eligible_schemes) > 0 and (not is_explore):
+        top = eligible_schemes[0]
+        top_name = top.get("scheme_name") or top.get("name", "Primary Scheme")
+        top_id = top.get("scheme_id") or top.get("id", "")
+        id_tag = f" ({top_id})" if top_id and top_id not in top_name else ""
+        if is_indic:
+            reply = (
+                f"आपकी प्रोफ़ाइल और पात्रता मानदंडों के आधार पर सरकारी रियायती ऋण योजनाएं मिल गई हैं। आपकी शीर्ष अनुशंसित योजना **{top_name}**{id_tag} है। "
+                "आप नीचे दिए गए कार्डों में पूर्ण विवरण देख सकते हैं, ईएमआई की गणना कर सकते हैं या निकटतम चैनल पार्टनर ढूंढ सकते हैं।"
+            )
+        else:
+            reply = (
+                f"Based on our evaluation against official government guidelines, here are the verified concessional schemes matching your profile. Your top primary recommendation is **{top_name}**{id_tag}. "
+                "You can review details, calculate your EMI, and connect with nearby channel partners below."
+            )
+        return (reply, {"explore": True, "partner": True}, None)
+
+    # Feature 8: Pure Greeting
+    if is_pure_greeting:
+        if is_indic:
+            reply = "नमस्ते! मैं सरकारी रियायती ऋण योजनाओं, पात्रता मानदंडों, ईएमआई गणना या चैनल पार्टनर खोजने में आपकी क्या सहायता कर सकता हूँ?"
+        else:
+            reply = "Hello! How can I assist you with government concessional loan schemes, eligibility criteria, EMI calculations, or locating channel partners today?"
+        return (reply, {"explore": True, "finder": True}, None)
+
+    # Feature 9: Explore all schemes
+    if is_explore:
+        if is_indic:
+            reply = "आप एनएसएफडीसी और भागीदार संस्थानों की सभी 5 प्राथमिक रियायती योजनाएं और संबद्ध सहायता (VISVAS) देख सकते हैं। सभी उपलब्ध विकल्प और वित्तीय विवरण नीचे दिए गए बटन पर क्लिक करके देखें।"
+        else:
+            reply = "You can explore all verified government concessional schemes from NSFDC and partner institutions. Use the button below to browse all available options and financial details."
+        return (reply, {"explore": True}, None)
+
+    # General Fallback (clean, direct, no repetitive intro)
+    if is_indic:
+        reply = "मैं रियायती ऋण योजनाओं (माइक्रो फाइनेंस, आजीविका, टर्म लोन, उद्यम निधि, शिक्षा ऋण), ईएमआई गणना, आवश्यक दस्तावेज़ों या अधिकृत चैनल पार्टनर खोजने में आपकी सहायता कर सकता हूँ। कृपया अपना प्रश्न बताएं।"
+    else:
+        reply = "I can help you evaluate concessional credit schemes (Micro Finance, Aajeevika, Term Loan, Udyam Nidhi, Educational Loans), calculate loan EMIs, review required documents, or find authorized channel partners. How can I assist you with your loan inquiry?"
+    return (reply, {"explore": True, "finder": True}, None)
 
 
 async def get_ai_response(
@@ -812,129 +1279,11 @@ async def get_ai_response(
     partner_output: dict[str, Any] | None = None,
     ineligibility_query: dict[str, Any] | None = None,
     out_of_scope_schemes: list[dict[str, Any]] | None = None,
+    document_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Main entry point: get an AI response for the user's message."""
+    """Main entry point: get an AI response for the user message."""
 
     language_used, language_detected = _detect_language(message, language)
-
-    # Pre-language fallback messages (in the user's selected language when possible)
-    _FALLBACK_MESSAGES = {
-        "en": (
-            "AI Assistant is temporarily unavailable. "
-            "Please try again later or use the Financial Calculator and Partner Locator directly. "
-            "Your scheme eligibility is always determined by the backend rule engine, not by the AI."
-        ),
-        "hi": (
-            "AI सहायक अस्थायी रूप से उपलब्ध नहीं है। "
-            "कृपया बाद में पुनः प्रयास करें या सीधे वित्तीय कैलकुलेटर और पार्टनर लोकेटर का उपयोग करें। "
-            "आपकी योजना पात्रता हमेशा बैकएंड नियम इंजन द्वारा निर्धारित होती है, AI द्वारा नहीं।"
-        ),
-        "bn": (
-            "AI সহকারী সাময়িকভাবে অনুপলব্ধ। "
-            "অনুগ্রহ করে পরে আবার চেষ্টা করুন অথবা সরাসরি আর্থিক ক্যালকুলেটর এবং পার্টনার লোকেটর ব্যবহার করুন। "
-            "আপনার স্কিম যোগ্যতা সর্বদা ব্যাকএন্ড নিয়ম ইঞ্জিন দ্বারা নির্ধারিত হয়, AI দ্বারা নয়।"
-        ),
-        "ta": (
-            "AI உதவியாளர் தற்காலிகமாக கிடைக்கவில்லை. "
-            "தயவுசெய்து பின்னர் மீண்டும் முயற்சிக்கவும் அல்லது நேரடியாக நிதிக் கணிப்பான் மற்றும் கூட்டாளர் லொகேட்டரைப் பயன்படுத்தவும். "
-            "உங்கள் திட்ட தகுதி எப்போதும் பின்தள விதிகள் இயந்திரத்தால் நிர்ணயிக்கப்படுகிறது, AI அல்ல."
-        ),
-        "te": (
-            "AI సహాయకుడు తాత్కాలికంగా అందుబాటులో లేడు. "
-            "దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి లేదా నేరుగా ఫైనాన్షియల్ కాల్క్యులేటర్ మరియు పార్ట్నర్ లొకేటర్ ఉపయోగించండి. "
-            "మీ పథక అర్హత ఎల్లప్పుడూ బ్యాకెండ్ నియమ ఇంజిన్ ద్వారా నిర్ణయించబడుతుంది, AI ద్వారా కాదు."
-        ),
-        "mr": (
-            "AI सहाय्यक तात्पुरत्या उपलब्ध नाही. "
-            "कृपया नंतर पुन्हा प्रयत्न करा किंवा थेट आर्थिक कॅल्क्युलेटर आणि पार्टनर लोकेटर वापरा. "
-            "तुमच्या योजनेची पात्रता नेहमी बॅकएंड नियम इंजिनद्वारे ठरवली जाते, AI द्वारे नाही."
-        ),
-        "gu": (
-            "AI સહાયક હાલ પ્રકારે ઉપલબ્ધ નથી. "
-            "કૃપા કરીને પછીથી ફરી પ્રયાસ કરો અથવા સીધા નાણાકીય કેલ્ક્યુલેટર અને પાર્ટનર લોકેટરનો ઉપયોગ કરો. "
-            "તમારી યોજનાની પાત્રતા હંમેશા બેકએન્ડ નિયમ એન્જિન દ્વારા નક્કી થાય છે, AI દ્વારા નહીં."
-        ),
-        "kn": (
-            "AI ಸಹಾಯಕ ತಾತ್ಕಾಲಿಕವಾಗಿ ಲಭ್ಯವಿಲ್ಲ. "
-            "ದಯವಿಟ್ಟು ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ನೇರವಾಗಿ ಹಣಕಾಸು ಕ್ಯಾಲ್ಕುಲೇಟರ್ ಮತ್ತು ಪಾರ್ಟ್ನರ್ ಲೊಕೇಟರ್ ಬಳಸಿ. "
-            "ನಿಮ್ಮ ಯೋಜನೆ ಅರ್ಹತೆಯನ್ನು ಯಾವಾಗಲೂ ಬ್ಯಾಕೆಂಡ್ ನಿಯಮ ಎಂಜಿನ್ ನಿರ್ಧರಿಸುತ್ತದೆ, AI ಅಲ್ಲ."
-        ),
-        "ml": (
-            "AI സഹായകൻ താൽക്കാലികമായി ലഭ്യമല്ല. "
-            "ദയവായി പിന്നീട് വീണ്ടും ശ്രമിക്കുക അല്ലെങ്കിൽ നേരിട്ട് ഫിനാൻഷ്യൽ കാൽക്കുലേറ്ററും പാർട്ണർ ലൊക്കേറ്ററും ഉപയോഗിക്കുക. "
-            "നിങ്ങളുടെ സ്കീം യോഗ്യത എപ്പോഴും ബാക്കെൻഡ് റൂൾ എഞ്ചിൻ നിർണ്ണയിക്കുന്നു, AI അല്ല."
-        ),
-        "pa": (
-            "AI ਸਹਾਇਕ ਅਸਥਾਈ ਤੌਰ 'ਤੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ. "
-            "ਕਿਰਪਾ ਕਰਕੇ ਬਾਅਦ ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਸਿੱਧੇ ਤੌਰ 'ਤੇ ਵਿੱਤੀ ਕੈਲਕੁਲੇਟਰ ਅਤੇ ਪਾਰਟਨਰ ਲੋਕੇਟਰ ਦੀ ਵਰਤੋਂ ਕਰੋ. "
-            "ਤੁਹਾਡੀ ਸਕੀਮ ਯੋਗਤਾ ਹਮੇਸ਼ਾ ਬੈਕਐਂਡ ਨਿਯਮ ਇੰਜਣ ਦੁਆਰਾ ਨਿਰਧਾਰਿਤ ਹੁੰਦੀ ਹੈ, AI ਦੁਆਰਾ ਨਹੀਂ."
-        ),
-        "or": (
-            "AI ସହାୟକ ଅସ୍ଥାୟୀ ଭାବରେ ଉପଲବ୍ଧ ନାହିଁ। "
-            "ଦୟାକରି ପରବର୍ତ୍ତୀ ସମୟରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ ଅଥବା ସିଧାସଳଖ ଆର୍ଥିକ କ୍ୟାଲକୁଲେଟର ଏବଂ ପାର୍ଟନର ଲୋକେଟର ବ୍ୟବହାର କରନ୍ତୁ। "
-            "ଆପଣଙ୍କ ସ୍କିମ ଯୋଗ୍ୟତା ସର୍ବଦା ବ୍ୟାକଏଣ୍ଡ ନିୟମ ଇଞ୍ଜିନ ଦ୍ୱାରା ନିର୍ଧାରିତ ହୁଏ, AI ଦ୍ୱାରା ନୁହେଁ।"
-        ),
-        "as": (
-            "AI সহায়িকা অস্থায়ীভাৱে উপলব্ধ নাই। "
-            "অনুগ্ৰহ কৰি পিছত পুনৰ চেষ্টা কৰক অথবা পৰা আৰ্থিক কেলকুলেটৰ আৰু পাৰ্টনাৰ লোকেটৰ ব্যৱহাৰ কৰক। "
-            "আপোনাৰ স্কিম যোগ্যতা সদায় বেকএণ্ড নিয়ম ইঞ্জিনে নিৰ্ধাৰণ কৰে, AIয়ে নহয়।"
-        ),
-        "ur": (
-            "AI معاون عارضی طور پر دستیاب نہیں ہے۔ "
-            "براہ کرم بعد میں دوبارہ کوشش کریں یا براہ راست مالی کیلکولیٹر اور پارٹنر لوکیٹر استعمال کریں۔ "
-            "آپ کی سکیم کی اہلیتہ ہمیشہ بیک اینڈ انجن سے طے ہوتی ہے، AI سے نہیں۔"
-        ),
-        "ne": (
-            "AI सहायक अस्थायी रूपमा उपलब्ध छैन। "
-            "कृपया पछि फेरि प्रयास गर्नुहोस् वा प्रत्यक्ष वित्तीय क्याल्कुलेटर र पार्टनर लोकेटर प्रयोग गर्नुहोस्। "
-            "तपाईंको योजना योग्यता सधैं ब्याकएन्ड नियम इन्जिनद्वारा निर्धारित हुन्छ, AI द्वारा होइन।"
-        ),
-        "sa": (
-            "AI सहायकः अधुना उपलब्धः नास्ति। "
-            "कृपया पश्चात् पुनः प्रयत्नं कुर्वन्तु अथवा प्रत्यक्षं वित्तीय कैल्कुलेटर् एवं साझेदार-लोकेटरं उपयुञ्जन्तु। "
-            "भवतः योजना-अर्हता सर्वदा बैकएन्ड् नियम-इञ्जिनेन निर्धार्यते, AI-द्वारा न।"
-        ),
-        "mai": (
-            "AI सहायक अस्थायी रूप में उपलब्ध नहीं अछि। "
-            "कृपया बाद में फिनि प्रयास करू अथवा सिधा वित्तीय कैलकुलेटर आ पार्टनर लोकेटर के उपयोग करू। "
-            "अहाँक योजना योग्यता हमेशा बैकएंड नियम इंजिन से निर्धारित होइल, AI से नहिं।"
-        ),
-        "sat": (
-            "AI साहायिक चांड़ा चांड़ा आम लेबाबात बाङ आय। "
-            "दया कात ताय बाद मा लाहा कोसिस आर जांका सिधा सिधा रेजिनिच् कैलकुलेटर आ साझेदार लोकेटर बेबेमोत। "
-            "निमकी स्कीम योग्यता हरसा बेकएंड रेगुलेटर इंजिन ते निर्धारित होई, AI हें बाङ।"
-        ),
-        "sd": (
-            "AI معاون عارضي طور تي دستياب ناهي۔ "
-            "مهرباني ڪري پوءي ٻي هُر جاھن ڪوشش ڪريو يا سڌيَارو مالي ڪيالڪوليٽر ۽ ساتھي لوڪيٽر استعمال ڪريو۔ "
-            "تهنجي اسڪيم وڌاءت هميشھ ٻيڪ اينڊ انجن ٿي ٿي، AI ٿي ٿي نه۔"
-        ),
-        "brx": (
-            "AI सहायक अस्थायी रूपमा उपलब्ध नो। "
-            "दया कराय बेलायाब्लागै फेरि प्रयास करना न'वा थायों बेबस्ताय सिधासिधा वित्तीय कैलकुलेटर आ साझेदार लोकेटर बाहाय। "
-            "नों'र स्कीम योग्यता गैबेएण्ड नियम इंजिननि सावनि थों निर्धारित होयो, AI निर्सै।"
-        ),
-        "doi": (
-            "AI सहायक अस्थायी रूप म्हां उपलब्ध नहीं अछि। "
-            "कृपया बाद में फिनि प्रयास करू अथवा सिधा वित्तीय कैलकुलेटर आ पार्टनर लोकेटर के उपयोग करू। "
-            "अहाँक योजना योग्यता हमेशा बैकएंड नियम इंजिन से निर्धारित होइल, AI से नहिं।"
-        ),
-        "ks": (
-            "AI معاون عارضی طور پر دستیاب نہیں ہے۔ "
-            "براہ کرم بعد میں دوبارہ کوشش کریں یا براہ راست مالی کیلکولیٹر أور پارٹنر لوکیٹراستعمال کریں۔ "
-            "آپ кی سکیم कی अहलیyat ہمیشہ بیک أینڈ أینجِن سे طے ہوتی ہے، AI سे نہیں۔"
-        ),
-        "kok": (
-            "AI सहाय्यक तात्पुरत्या उपलब्ध नाही. "
-            "कृपया नंतर पुन्हा प्रयत्न करा किंवा थेट आर्थिक कॅल्क्युलेटर आणि पार्टनर लोकेटर वापरा. "
-            "तुमच्या योजनेची पात्रता नेहमी बॅकएंड नियम इंजिनद्वारे ठरवली जाते, AI द्वारे नाही."
-        ),
-        "mni": (
-            "AI ꯁ꯭ꯄꯩꯇꯔꯥꯡ ꯑꯁ꯭ꯇꯥꯌꯥꯏꯛꯅꯒꯨꯗꯤ ꯀꯩꯗꯥꯔꯁꯅꯤ ꯑꯅꯒꯨꯗꯤ. "
-            "ꯃꯩꯇꯕꯒꯨꯗꯤ ꯇꯥꯡꯕꯗꯨꯀꯤ ꯁ꯭ꯄꯩꯇꯔꯥꯡ ꯋꯥꯡꯏꯛꯅꯤ ꯑꯅꯒꯨꯗꯤ ꯃꯥꯏꯁꯤꯇꯦꯡ ꯀꯥꯜꯀ꯿ꯃꯌꯦꯜꯦꯇꯔꯁꯅꯤ ꯃꯥꯌꯥꯡ ꯑꯅꯒꯨꯗꯤ. "
-            "ꯑꯃꯊꯪꯕꯒꯨꯗꯤ ꯁ꯭ꯀꯩꯃꯁꯅꯤ ꯃꯥꯎꯟꯇꯥꯡ ꯃꯊꯪꯕꯒꯨꯗꯤ ꯇꯥꯡꯕꯗꯨꯀꯤ ꯊꯥꯛꯁꯅꯤꯇꯦꯡ ꯀꯥꯜꯀ꯿ꯃꯌꯦꯜꯦꯇꯔꯁꯅꯤ ꯑꯅꯒꯨꯗꯤ, AI ꯑꯅꯒꯨꯗꯤ ꯑꯅꯒꯨꯗꯤ ꯑꯅꯒꯨꯗꯤ."
-        ),
-    }
 
     context = _build_user_context(
         user_profile=user_profile,
@@ -944,37 +1293,44 @@ async def get_ai_response(
         partner_output=partner_output,
         ineligibility_query=ineligibility_query,
         out_of_scope_schemes=out_of_scope_schemes,
+        document_status=document_status,
     )
 
     reply = await _call_gemini(SYSTEM_PROMPT, message, context)
 
+    navigation = None
     if reply is None:
-        # Same-language error fallback
-        # Use the user's selected/detected language; never force English.
-        _fallback_key = language_used if language_used in _FALLBACK_MESSAGES else None
-        if _fallback_key is None and language and is_supported_language(language):
-            _fallback_key = language if language in _FALLBACK_MESSAGES else None
-        if _fallback_key is None:
-            _fallback_key = "en"
+        candidate_keys = [
+            language_used.lower().strip() if language_used else "",
+            language.lower().strip() if language else "",
+            "en",
+        ]
+        _fallback_key = candidate_keys[0] or "en"
+        reply, navigation, fallback_oos = _build_intelligent_assistant_reply(
+            message=message,
+            language=_fallback_key,
+            user_profile=user_profile,
+            eligible_schemes=eligible_schemes,
+            ineligible_schemes=ineligible_schemes,
+            emi_output=emi_output,
+            partner_output=partner_output,
+            ineligibility_query=ineligibility_query,
+            out_of_scope_schemes=out_of_scope_schemes,
+        )
+        if fallback_oos and not out_of_scope_schemes:
+            out_of_scope_schemes = fallback_oos
+    else:
+        navigation = _detect_navigation_from_intent(message, reply)
 
-        if not GEMINI_API_KEY:
-            reply = _FALLBACK_MESSAGES.get(
-                _fallback_key,
-                (
-                    "AI Assistant is temporarily unavailable. "
-                    "The GEMINI_API_KEY is not configured. "
-                    "Your rule-based scheme results are still available."
-                ),
-            )
-        else:
-            reply = _FALLBACK_MESSAGES.get(
-                _fallback_key,
-                (
-                    "AI Assistant is temporarily unavailable. "
-                    "Please try again later or use the Financial Calculator and Partner Locator directly. "
-                    "Your scheme eligibility is always determined by the backend rule engine, not by the AI."
-                ),
-            )
+    msg_lower = (message or "").lower().strip()
+    user_asked_partner = any(
+        k in msg_lower
+        for k in [
+            "channel partner", "channel partners", "partner", "partners",
+            "locator", "nearby", "locate", "where to apply", "branch",
+            "चैनल पार्टनर", "पार्टनर", "शाखा", "निकटतम"
+        ]
+    )
 
     # Parse AI ranking before stripping markers
     structured = _extract_structured_data(
@@ -984,6 +1340,8 @@ async def get_ai_response(
         partner_output=partner_output,
         ineligibility_query=ineligibility_query,
         out_of_scope_schemes=out_of_scope_schemes,
+        user_asked_partner=user_asked_partner,
+        document_status=document_status,
     )
 
     # Strip ranking markers from the user-visible reply
@@ -993,5 +1351,6 @@ async def get_ai_response(
         "reply": clean_reply,
         "language_used": language_used,
         "language_detected": language_detected,
+        "navigation": navigation,
         **structured,
     }

@@ -10,16 +10,25 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
 
 from schemas.ai_assistant import AIAssistantRequest, AIAssistantResponse
 from services.ai_assistant import get_ai_response
-from services.auth import get_current_user
+from services.auth import get_current_user, decode_token
 from services.channel_partner_locator import find_channel_partners
 from services.emi_calculator import calculate_emi_for_scheme
 from services.languages import build_language_selector_options, is_supported_language
 from database.database import get_db
+
+
+DOCUMENT_KEYWORDS = [
+    "doc", "document", "documents", "upload", "uploaded",
+    "certificate", "paper", "proof", "checklist", "missing",
+    "pending documents", "required documents", "document status",
+    "दस्तावेज़", "कागज़", "प्रमाण", "सर्टिफिकेट",
+    "जाति प्रमाण", "आय प्रमाण", "upload कर", "uploaded",
+]
 
 
 router = APIRouter(
@@ -166,6 +175,78 @@ def _get_application_process_verified(
     return False
 
 
+def _fetch_document_status(user_id: int) -> dict[str, Any] | None:
+    """Fetch document checklist and uploaded documents for the user.
+
+    Returns a summary dict with:
+    - requirements: list of document requirement types
+    - uploaded: list of uploaded document types
+    - completion_percentage: percentage of mandatory docs uploaded
+    - mandatory_uploaded / mandatory_total: counts
+    - missing_mandatory: list of mandatory document types not yet uploaded
+    """
+    try:
+        DEFAULT_REQUIREMENTS = [
+            {"document_type": "caste_certificate", "name": "Caste Certificate", "mandatory": True},
+            {"document_type": "income_certificate", "name": "Income Certificate", "mandatory": True},
+            {"document_type": "identity_proof", "name": "Identity Proof (Aadhaar / Voter ID)", "mandatory": True},
+            {"document_type": "address_proof", "name": "Address Proof / Domicile", "mandatory": True},
+            {"document_type": "bank_statement", "name": "Bank Passbook / Cancelled Cheque", "mandatory": True},
+            {"document_type": "dpr", "name": "Project Report / Quotation (DPR)", "mandatory": False},
+            {"document_type": "education_proof", "name": "Educational Admission / Fee Slip", "mandatory": False},
+        ]
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT document_type, document_name, verification_status FROM documents WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            )
+            rows = cursor.fetchall()
+
+        uploaded_types = set()
+        uploaded_docs = []
+        for row in rows:
+            doc_type = row["document_type"]
+            if doc_type not in uploaded_types:
+                uploaded_types.add(doc_type)
+                uploaded_docs.append({
+                    "document_type": doc_type,
+                    "document_name": row["document_name"],
+                    "verification_status": row["verification_status"] or "pending",
+                })
+
+        mandatory_reqs = [r for r in DEFAULT_REQUIREMENTS if r["mandatory"]]
+        mandatory_total = len(mandatory_reqs)
+        mandatory_uploaded = sum(1 for r in mandatory_reqs if r["document_type"] in uploaded_types)
+        percentage = int((mandatory_uploaded / mandatory_total) * 100) if mandatory_total > 0 else 100
+
+        missing_mandatory = [
+            r["name"] for r in mandatory_reqs
+            if r["document_type"] not in uploaded_types
+        ]
+
+        return {
+            "uploaded": uploaded_docs,
+            "uploaded_types": list(uploaded_types),
+            "completion_percentage": percentage,
+            "mandatory_uploaded": mandatory_uploaded,
+            "mandatory_total": mandatory_total,
+            "missing_mandatory": missing_mandatory,
+            "all_requirements": [
+                {
+                    "document_type": r["document_type"],
+                    "name": r["name"],
+                    "mandatory": r["mandatory"],
+                    "uploaded": r["document_type"] in uploaded_types,
+                }
+                for r in DEFAULT_REQUIREMENTS
+            ],
+        }
+    except Exception:
+        return None
+
+
 class LanguageOption(BaseModel):
     code: str
     name: str
@@ -186,7 +267,7 @@ def get_languages():
 @router.post("/assistant")
 async def ai_assistant(
     request: AIAssistantRequest,
-    authorization: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
 ):
     """Main AI Assistant endpoint.
 
@@ -225,10 +306,10 @@ async def ai_assistant(
 
     elif token_profile:
         # Authenticated but no scheme_context provided
-        # Auto-fetch profile and run rule engine for AI context
         user_profile = token_profile
 
-        # Check if profile has enough data to run rule engine
+    # If eligible_schemes is empty but user_profile is available, run rule engine
+    if not eligible_schemes and user_profile:
         has_category = bool(user_profile.get("category"))
         has_income = user_profile.get("annual_income") is not None
 
@@ -237,8 +318,7 @@ async def ai_assistant(
                 eligible_schemes, ineligible_schemes = _run_rule_engine_locally(
                     user_profile, all_schemes
                 )
-            except Exception as e:
-                # Rule engine failure should not crash the AI assistant
+            except Exception:
                 eligible_schemes = None
                 ineligible_schemes = None
 
@@ -252,42 +332,38 @@ async def ai_assistant(
             ineligible_schemes, all_schemes
         )
 
-    # Auto-fetch channel partners for schemes that need them
-    # If any scheme has channel_partner_fallback_needed, fetch partner data
+    # Auto-fetch channel partners if user asks about partners or where to apply
+    user_asked_partner = False
+    if request.message:
+        msg_lower = request.message.lower()
+        partner_keywords = [
+            "channel partner", "channel partners", "partner", "partners", "locator",
+            "nearby", "locate", "where to apply", "branch", "branches",
+            "पार्टनर", "शाखा", "निकटतम", "कहाँ आवेदन"
+        ]
+        user_asked_partner = any(k in msg_lower for k in partner_keywords)
+
     partner_output = request.partner_output
-    if not partner_output:
-        schemes_needing_partners = []
-        for scheme in (eligible_schemes or []):
-            if scheme.get("channel_partner_fallback_needed"):
-                schemes_needing_partners.append(scheme)
-        for scheme in (ineligible_schemes or []):
-            if scheme.get("channel_partner_fallback_needed"):
-                schemes_needing_partners.append(scheme)
+    if not partner_output and user_asked_partner:
+        user_state = None
+        user_district = None
+        if user_profile:
+            user_state = user_profile.get("state")
+            user_district = user_profile.get("district")
+        elif request.scheme_context:
+            ctx_profile = request.scheme_context.get("user_profile", {})
+            user_state = ctx_profile.get("state")
+            user_district = ctx_profile.get("district")
 
-        if schemes_needing_partners:
-            # Determine user location from profile or scheme context
-            user_state = None
-            user_district = None
-            if user_profile:
-                user_state = user_profile.get("state")
-                user_district = user_profile.get("district")
-            elif request.scheme_context:
-                ctx_profile = request.scheme_context.get("user_profile", {})
-                user_state = ctx_profile.get("state")
-                user_district = ctx_profile.get("district")
-
-            # Find partners for the first scheme needing partners
-            # (typically all schemes share the same channel requirements)
-            if user_state:
-                try:
-                    partner_output = find_channel_partners(
-                        state=user_state,
-                        district=user_district,
-                        max_results=5,
-                    )
-                except Exception:
-                    # Partner locator failure should not crash the AI assistant
-                    partner_output = None
+        if user_state:
+            try:
+                partner_output = find_channel_partners(
+                    state=user_state,
+                    district=user_district,
+                    max_results=5,
+                )
+            except Exception:
+                partner_output = None
 
     # Auto-calculate EMI if user asks about EMI or loan calculations
     # Check if message contains EMI-related keywords
@@ -320,6 +396,16 @@ async def ai_assistant(
 
     # If ineligibility query is provided, we use it for explanation
     ineligibility_query = request.ineligibility_query
+
+    # Auto-fetch document status if user asks about documents
+    user_asked_documents = False
+    document_status = None
+    if request.message:
+        msg_lower = request.message.lower()
+        user_asked_documents = any(k in msg_lower for k in DOCUMENT_KEYWORDS)
+
+    if user_asked_documents and user_id:
+        document_status = _fetch_document_status(user_id)
 
     # Determine out-of-scope schemes
     # (verified in scheme data but not within Scheme Saathi's primary scope)
@@ -376,6 +462,7 @@ async def ai_assistant(
         partner_output=partner_output,
         ineligibility_query=ineligibility_query,
         out_of_scope_schemes=out_of_scope_schemes or None,
+        document_status=document_status,
     )
 
     return {

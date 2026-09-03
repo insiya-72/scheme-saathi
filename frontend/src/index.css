@@ -43,3 +43,44 @@ button {
   background: #cfe8f4;
   color: #12365d;
 }
+
+/* RTL and Multilingual Directional Styles */
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right !important;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left !important;
+}
+
+[dir="rtl"] input,
+[dir="rtl"] select,
+[dir="rtl"] textarea {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] input[type="number"],
+[dir="rtl"] input[type="tel"] {
+  direction: ltr;
+  text-align: right;
+}
+
+/* Urdu, Kashmiri and Sindhi Typography Font Stack */
+[lang="ur"],
+[lang="sd"],
+[lang="ks"],
+[dir="rtl"] {
+  font-family:
+    "Noto Nastaliq Urdu",
+    "Jameel Noori Nastaleeq",
+    "Scheherazade New",
+    "Urdu Typesetting",
+    Inter,
+    sans-serif;
+}

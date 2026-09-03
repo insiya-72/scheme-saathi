@@ -4,8 +4,27 @@ Provides deterministic EMI calculations for government schemes.
 This service does NOT use AI - it uses standard financial formulas.
 """
 
+import json
 import math
+from pathlib import Path
 from typing import Any
+
+_SCHEMES_CACHE: list[dict[str, Any]] | None = None
+_SCHEMES_FILE = Path(__file__).resolve().parent.parent / "data" / "schemes.json"
+
+VALID_MORATORIUM_TREATMENTS = {"simple_interest", "none"}
+
+
+def _load_schemes_cache() -> list[dict[str, Any]]:
+    """Load and cache schemes data from JSON file."""
+    global _SCHEMES_CACHE
+    if _SCHEMES_CACHE is None:
+        if not _SCHEMES_FILE.exists():
+            return []
+        with open(_SCHEMES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        _SCHEMES_CACHE = data.get("schemes", [])
+    return _SCHEMES_CACHE
 
 
 def calculate_emi(
@@ -27,11 +46,24 @@ def calculate_emi(
         r = Monthly interest rate (annual rate / 12 / 100)
         n = Number of monthly installments
 
+    Moratorium Assumptions:
+        - During the moratorium period (moratorium_months), monthly EMI installment
+          repayments are deferred.
+        - When moratorium_treatment is "simple_interest":
+          Simple interest accrues on the principal amount over the moratorium duration
+          at the annual interest rate:
+          moratorium_interest = principal * (annual_interest_rate / 100) * (moratorium_months / 12).
+          This interest is added to total_interest and total_repayment. It is treated as
+          un-capitalized simple interest payable across or at completion of the loan.
+        - When moratorium_treatment is "none":
+          No interest is charged during the moratorium period (e.g., in subsidized schemes
+          or interest-free holiday periods).
+
     Args:
         principal: Loan amount in INR (must be > 0)
         annual_interest_rate: Annual interest rate in percentage (e.g., 6.5 for 6.5%)
         tenure_months: Loan tenure in months (must be > 0)
-        moratorium_months: Moratorium period in months (default 0)
+        moratorium_months: Moratorium period in months (must be >= 0, default 0)
         moratorium_treatment: How to treat moratorium ("simple_interest" or "none")
 
     Returns:
@@ -52,6 +84,13 @@ def calculate_emi(
         raise ValueError("Tenure must be greater than 0")
     if annual_interest_rate < 0:
         raise ValueError("Interest rate cannot be negative")
+    if moratorium_months < 0:
+        raise ValueError("Moratorium months cannot be negative")
+    if moratorium_treatment not in VALID_MORATORIUM_TREATMENTS:
+        raise ValueError(
+            f"Invalid moratorium_treatment '{moratorium_treatment}'. "
+            f"Allowed values are: {', '.join(sorted(VALID_MORATORIUM_TREATMENTS))}"
+        )
 
     # Handle 0% interest rate (interest-free loan)
     if annual_interest_rate == 0:
@@ -175,19 +214,8 @@ def _get_scheme_name(scheme_id: str) -> str:
 
 
 def get_scheme_financial_terms(scheme_id: str) -> dict[str, Any] | None:
-    """Get financial terms for a scheme from the master data."""
-    import json
-    from pathlib import Path
-
-    scheme_file = Path(__file__).resolve().parent.parent / "data" / "schemes.json"
-
-    if not scheme_file.exists():
-        return None
-
-    with open(scheme_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    schemes = data.get("schemes", [])
+    """Get financial terms for a scheme from the cached master data."""
+    schemes = _load_schemes_cache()
 
     for scheme in schemes:
         if scheme.get("id") == scheme_id:

@@ -19,8 +19,10 @@ class AIAssistantResponse(BaseModel):
     other_eligible_schemes: Optional[list[dict]] = None
     emi_projection: Optional[dict] = None
     matched_channel_partners: Optional[list[dict]] = None
-    application_guidance: Optional[dict] = None
+    application_guidance: Optional[list[dict] | dict] = None
     ineligibility_explanations: Optional[list[dict]] = None
     out_of_scope_schemes: Optional[list[dict]] = None
     secondary_support: Optional[list[dict]] = None
     disclaimer: str = ""
+    navigation: Optional[dict] = None
+    document_status: Optional[dict] = None
