@@ -4,36 +4,72 @@ from typing import Any
 def _income_is_eligible(
     user_income: float,
     scheme: dict[str, Any],
-) -> bool:
+) -> tuple[bool, str | None]:
     income_rule = scheme["eligibility"].get(
         "annual_family_income"
     )
 
     if not income_rule:
-        return True
+        return True, None
 
     limit = income_rule["amount_inr"]
     operator = income_rule["operator"]
 
     if operator == "<=":
-        return user_income <= limit
+        ok = user_income <= limit
+        msg = (
+            None
+            if ok
+            else (
+                f"Annual family income ₹{user_income:,.0f} exceeds "
+                f"the scheme limit of ₹{limit:,} (≤ ₹{limit:,})."
+            )
+        )
+        return ok, msg
 
     if operator == "<":
-        return user_income < limit
+        ok = user_income < limit
+        msg = (
+            None
+            if ok
+            else (
+                f"Annual family income ₹{user_income:,.0f} is not below "
+                f"the scheme limit of ₹{limit:,}."
+            )
+        )
+        return ok, msg
 
     if operator == ">=":
-        return user_income >= limit
+        ok = user_income >= limit
+        msg = (
+            None
+            if ok
+            else (
+                f"Annual family income ₹{user_income:,.0f} is below "
+                f"the minimum of ₹{limit:,}."
+            )
+        )
+        return ok, msg
 
     if operator == ">":
-        return user_income > limit
+        ok = user_income > limit
+        msg = (
+            None
+            if ok
+            else (
+                f"Annual family income ₹{user_income:,.0f} is not above "
+                f"the minimum of ₹{limit:,}."
+            )
+        )
+        return ok, msg
 
-    return False
+    return False, "Could not evaluate income rule."
 
 
 def _community_is_eligible(
     user_category: str,
     scheme: dict[str, Any],
-) -> bool:
+) -> tuple[bool, str | None]:
     allowed = (
         scheme["eligibility"]
         .get("community", {})
@@ -41,14 +77,25 @@ def _community_is_eligible(
     )
 
     if not allowed:
-        return True
+        return True, None
 
     normalized_allowed = {
         str(item).upper().strip()
         for item in allowed
     }
 
-    return user_category.upper().strip() in normalized_allowed
+    ok = user_category.upper().strip() in normalized_allowed
+    if ok:
+        return True, None
+
+    allowed_display = ", ".join(sorted(allowed))
+    return (
+        False,
+        (
+            f"Applicant category '{user_category}' does not match "
+            f"the required categories: {allowed_display}."
+        ),
+    )
 
 
 def _project_cost_is_eligible(
@@ -240,6 +287,7 @@ def check_scheme_eligibility(
 
     reasons: list[str] = []
     failures: list[str] = []
+    criterion_status: list[dict[str, Any]] = []
 
     category = (
         str(user_data.get("category", ""))
@@ -277,10 +325,23 @@ def check_scheme_eligibility(
     # COMMUNITY
     # -----------------------------------------------------
 
-    community_ok = _community_is_eligible(
+    community_ok, community_msg = _community_is_eligible(
         category,
         scheme,
     )
+
+    criterion_status.append({
+        "criterion": "community",
+        "description": "Caste / community requirement",
+        "satisfied": community_ok,
+        "user_value": category or "Not provided",
+        "required": (
+            scheme["eligibility"]
+            .get("community", {})
+            .get("allowed", [])
+        ),
+        "message": community_msg if not community_ok else "Satisfied.",
+    })
 
     if community_ok:
         reasons.append(
@@ -288,7 +349,8 @@ def check_scheme_eligibility(
         )
     else:
         failures.append(
-            (
+            community_msg
+            or (
                 "Applicant does not satisfy the scheme's "
                 "community requirement."
             )
@@ -298,10 +360,35 @@ def check_scheme_eligibility(
     # INCOME
     # -----------------------------------------------------
 
-    income_ok = _income_is_eligible(
+    income_ok, income_msg = _income_is_eligible(
         income,
         scheme,
     )
+
+    income_rule = scheme["eligibility"].get(
+        "annual_family_income"
+    )
+    income_limit = (
+        income_rule.get("amount_inr") if income_rule else None
+    )
+    income_operator = (
+        income_rule.get("operator") if income_rule else None
+    )
+
+    criterion_status.append({
+        "criterion": "income",
+        "description": "Annual family income limit",
+        "satisfied": income_ok,
+        "user_value": f"₹{income:,.0f}",
+        "required": (
+            f"{income_operator} ₹{income_limit:,}"
+            if income_limit is not None
+            else "No limit"
+        ),
+        "message": (
+            income_msg if not income_ok else "Satisfied."
+        ),
+    })
 
     if income_ok:
         reasons.append(
@@ -312,7 +399,8 @@ def check_scheme_eligibility(
         )
     else:
         failures.append(
-            (
+            income_msg
+            or (
                 "Annual family income exceeds the "
                 "applicable scheme limit."
             )
@@ -326,6 +414,23 @@ def check_scheme_eligibility(
         purpose,
         scheme,
     )
+
+    criterion_status.append({
+        "criterion": "purpose",
+        "description": "Requirement / purpose type",
+        "satisfied": purpose_ok,
+        "user_value": purpose or "Not provided",
+        "required": (
+            scheme.get("purpose", [])
+            if isinstance(scheme.get("purpose"), list)
+            else scheme.get("purpose", "Any")
+        ),
+        "message": (
+            "Satisfied."
+            if purpose_ok
+            else "Requirement type does not match the scheme."
+        ),
+    })
 
     if purpose_ok:
         reasons.append(
@@ -346,6 +451,44 @@ def check_scheme_eligibility(
             scheme,
         )
     )
+
+    financial_terms = scheme.get("financial_terms", {})
+    min_cost = financial_terms.get(
+        "minimum_project_cost_exclusive_inr"
+    )
+    max_cost = financial_terms.get(
+        "maximum_project_cost_inr"
+    )
+
+    criterion_status.append({
+        "criterion": "project_cost",
+        "description": "Project cost range",
+        "satisfied": project_ok,
+        "user_value": (
+            f"₹{project_cost:,.0f}" if project_cost is not None
+            else "Not provided"
+        ),
+        "required": (
+            (
+                f"> ₹{min_cost:,}"
+                if min_cost is not None
+                else ""
+            )
+            + (
+                f" and ≤ ₹{max_cost:,}"
+                if max_cost is not None
+                else ""
+            )
+        ).strip() or "No limit",
+        "message": (
+            project_error if not project_ok
+            else (
+                "Satisfied."
+                if project_cost is not None
+                else "No project cost provided; criterion skipped."
+            )
+        ),
+    })
 
     if project_ok:
         if project_cost is not None:
@@ -374,6 +517,26 @@ def check_scheme_eligibility(
             scheme,
         )
     )
+
+    criterion_status.append({
+        "criterion": "education",
+        "description": "Education level requirement",
+        "satisfied": education_ok,
+        "user_value": user_data.get("education_level") or "Not provided",
+        "required": (
+            "Professional/technical course"
+            if "educational" in str(scheme.get("name", "")).lower()
+            else "N/A"
+        ),
+        "message": (
+            education_error if not education_ok
+            else (
+                "Satisfied."
+                if scheme["id"] == "ELS"
+                else "No education criterion for this scheme."
+            )
+        ),
+    })
 
     if education_ok:
         if scheme["id"] == "ELS":
@@ -411,6 +574,27 @@ def check_scheme_eligibility(
         else ""
     )
 
+    gender_ok = True
+    gender_msg = "No gender restriction for this scheme."
+
+    if is_women_target and normalized_gender != "female":
+        gender_ok = False
+        gender_msg = (
+            "Applicant gender does not satisfy the "
+            "women-focused scheme condition."
+        )
+    elif is_women_target and normalized_gender == "female":
+        gender_msg = "Women-focused fund allocation target applies."
+
+    criterion_status.append({
+        "criterion": "gender",
+        "description": "Gender requirement",
+        "satisfied": gender_ok,
+        "user_value": gender or "Not provided",
+        "required": "Female (women-target scheme)" if is_women_target else "Any",
+        "message": gender_msg,
+    })
+
     # IMPORTANT:
     # Women-focused schemes are NOT eligible for
     # male / other / unspecified applicants.
@@ -419,10 +603,7 @@ def check_scheme_eligibility(
         and normalized_gender != "female"
     ):
         failures.append(
-            (
-                "Applicant gender does not satisfy the "
-                "women-focused scheme condition."
-            )
+            gender_msg
         )
     elif (
         is_women_target
@@ -445,6 +626,7 @@ def check_scheme_eligibility(
         "eligible": eligible,
         "reasons": reasons,
         "failures": failures,
+        "criterion_status": criterion_status,
         "gender_status": gender_status,
     }
 
