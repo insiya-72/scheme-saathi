@@ -95,9 +95,16 @@ def match_schemes(
 
     schemes = load_schemes()
 
+    # Filter OUT_OF_SCOPE schemes from eligibility evaluation
+    # OUT_OF_SCOPE schemes are only available as AI Assistant fallback alternatives
+    eligible_for_matching = [
+        s for s in schemes
+        if s.get("type") not in ("OUT_OF_SCOPE",)
+    ]
+
     results = evaluate_schemes(
         user_data,
-        schemes,
+        eligible_for_matching,
     )
 
     primary_results = [
