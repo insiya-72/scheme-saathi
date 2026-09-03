@@ -499,6 +499,16 @@ function App() {
   const [view, setView] =
     useState("home");
 
+  const [currentUser, setCurrentUser] =
+    useState(() => {
+      try {
+        const saved = localStorage.getItem("scheme_saathi_user");
+        return saved ? JSON.parse(saved) : null;
+      } catch {
+        return null;
+      }
+    });
+
   const [isLoggedIn, setIsLoggedIn] =
     useState(false);
 
@@ -510,12 +520,18 @@ function App() {
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = (user) => {
+    if (user) {
+      setCurrentUser(user);
+    }
     setIsLoggedIn(true);
     setView("finder");
   };
 
   const handleLogout = () => {
+    localStorage.removeItem("scheme_saathi_token");
+    localStorage.removeItem("scheme_saathi_user");
+    setCurrentUser(null);
     setIsLoggedIn(false);
     setView("home");
   };
@@ -549,6 +565,15 @@ function App() {
           }
           onLogin={() =>
             setView("login")
+          }
+          isLoggedIn={
+            isLoggedIn
+          }
+          currentUser={
+            currentUser
+          }
+          onLogout={
+            handleLogout
           }
         />
       )}
@@ -735,15 +760,20 @@ function LandingPage({
             </button>
 
             {isLoggedIn ? (
-              <button
-                onClick={onLogout}
-                className="flex items-center gap-2 rounded-lg border border-[#145c91] px-4 py-2.5 text-[13px] font-bold text-[#145c91] transition hover:bg-[#eef7fb]"
-              >
-                <UserRound
-                  size={15}
-                />
-                Logout
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded-lg bg-[#eef7fb] px-3.5 py-2 text-[13px] font-semibold text-[#145c91]">
+                  <UserRound
+                    size={15}
+                  />
+                  <span>{currentUser?.name || "Account"}</span>
+                </div>
+                <button
+                  onClick={onLogout}
+                  className="rounded-lg border border-[#cfd8e3] px-3.5 py-2 text-[13px] font-semibold text-[#52677d] transition hover:bg-[#f5f8fb] hover:text-[#c53030]"
+                >
+                  Logout
+                </button>
+              </div>
             ) : (
               <button
                 onClick={onLogin}
@@ -1605,33 +1635,62 @@ function AuthPage({
   const [showPassword, setShowPassword] =
     useState(false);
 
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const INDIAN_PHONE_RE = /^[6-9]\d{9}$/;
+
   const updateField = (
     field,
     value,
   ) => {
+    setError("");
     setForm((current) => ({
       ...current,
       [field]: value,
     }));
   };
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
+    setError("");
 
     if (
       authMode ===
       "signup"
     ) {
       if (
-        !form.name.trim() ||
         !form.identifier.trim() ||
+        !form.name.trim() ||
         !form.password ||
         !form.confirmPassword
       ) {
-        alert(
+        setError(
           "Please fill all required fields.",
         );
+        return;
+      }
 
+      if (
+        !INDIAN_PHONE_RE.test(
+          form.identifier.trim(),
+        )
+      ) {
+        setError(
+          "Enter Valid 10 digit Indian Number",
+        );
+        return;
+      }
+
+      if (
+        form.password.length < 6
+      ) {
+        setError(
+          "Password must be at least 6 characters.",
+        );
         return;
       }
 
@@ -1639,29 +1698,137 @@ function AuthPage({
         form.password !==
         form.confirmPassword
       ) {
-        alert(
+        setError(
           "Password and Confirm Password do not match.",
         );
-
         return;
       }
 
-      onSignupSuccess();
+      setLoading(true);
+      try {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/api/auth/signup`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                name: form.name.trim(),
+                identifier: form.identifier.trim(),
+                password: form.password,
+              }),
+            },
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          setError(
+            data?.detail ||
+              "Failed to create account. Please try again.",
+          );
+          setLoading(false);
+          return;
+        }
+
+        if (data.access_token) {
+          localStorage.setItem(
+            "scheme_saathi_token",
+            data.access_token,
+          );
+        }
+
+        if (data.user) {
+          localStorage.setItem(
+            "scheme_saathi_user",
+            JSON.stringify(data.user),
+          );
+        }
+
+        if (onSignupSuccess) {
+          onSignupSuccess(data.user);
+        } else if (onLogin) {
+          onLogin(data.user);
+        }
+      } catch (err) {
+        setError(
+          "Unable to connect to server. Please verify the backend is running.",
+        );
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
+    // Login mode
     if (
       !form.identifier.trim() ||
       !form.password
     ) {
-      alert(
-        "Please enter your email/mobile and password.",
+      setError(
+        "Please enter your mobile number and password.",
       );
-
       return;
     }
 
-    onLogin();
+    setLoading(true);
+    try {
+      const response =
+        await fetch(
+          `${API_BASE_URL}/api/auth/login`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              identifier: form.identifier.trim(),
+              password: form.password,
+            }),
+          },
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        setError(
+          data?.detail ||
+            "Invalid mobile number or password.",
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (data.access_token) {
+        localStorage.setItem(
+          "scheme_saathi_token",
+          data.access_token,
+        );
+      }
+
+      if (data.user) {
+        localStorage.setItem(
+          "scheme_saathi_user",
+          JSON.stringify(data.user),
+        );
+      }
+
+      if (onLogin) {
+        onLogin(data.user);
+      }
+    } catch (err) {
+      setError(
+        "Unable to connect to server. Please verify the backend is running.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -1788,11 +1955,21 @@ function AuthPage({
                   : "Create an account to continue to personalized scheme matching."}
               </p>
 
+              {error && (
+                <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700">
+                  <AlertCircle
+                    size={16}
+                    className="mt-0.5 shrink-0 text-red-600"
+                  />
+                  <span className="leading-5 font-medium">{error}</span>
+                </div>
+              )}
+
               <form
                 onSubmit={
                   submit
                 }
-                className="mt-8 space-y-5"
+                className="mt-6 space-y-5"
               >
                 {authMode ===
                   "signup" && (
@@ -1812,8 +1989,8 @@ function AuthPage({
                 )}
 
                 <TextField
-                  label="Email or Mobile Number"
-                  placeholder="Enter email or mobile number"
+                  label="Mobile Number"
+                  placeholder="Enter 10-digit mobile number"
                   value={
                     form.identifier
                   }
@@ -1852,7 +2029,7 @@ function AuthPage({
                             .value,
                         )
                       }
-                      placeholder="Enter password"
+                      placeholder={authMode === "signup" ? "Create a password (min 6 characters)" : "Enter password"}
                       className="w-full rounded-lg border border-[#ced9e1] bg-white px-4 py-3.5 pr-12 text-sm text-[#21364f] outline-none transition placeholder:text-[#a1acb6] focus:border-[#1769a8] focus:ring-4 focus:ring-[#1769a8]/10"
                     />
 
@@ -1940,16 +2117,24 @@ function AuthPage({
 
                 <button
                   type="submit"
-                  className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#145c91] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#104d7b]"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#145c91] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#104d7b] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {authMode ===
-                  "login"
-                    ? "Sign In"
-                    : "Create Account"}
-
-                  <ArrowRight
-                    size={18}
-                  />
+                  {loading ? (
+                    <span>{authMode === "login" ? "Signing In..." : "Creating Account..."}</span>
+                  ) : (
+                    <>
+                      <span>
+                        {authMode ===
+                        "login"
+                          ? "Sign In"
+                          : "Create Account"}
+                      </span>
+                      <ArrowRight
+                        size={18}
+                      />
+                    </>
+                  )}
                 </button>
               </form>
 
@@ -1966,12 +2151,15 @@ function AuthPage({
               {authMode ===
               "login" ? (
                 <button
+                  type="button"
                   onClick={() => {
                     setAuthMode(
                       "signup",
                     );
-
-                    onSignup();
+                    setError("");
+                    if (onSignup) {
+                      onSignup();
+                    }
                   }}
                   className="w-full rounded-lg border border-[#cfdbe3] px-5 py-3.5 text-sm font-semibold text-[#38506a] transition hover:bg-[#f7fafc]"
                 >
@@ -1979,11 +2167,13 @@ function AuthPage({
                 </button>
               ) : (
                 <button
-                  onClick={() =>
+                  type="button"
+                  onClick={() => {
                     setAuthMode(
                       "login",
-                    )
-                  }
+                    );
+                    setError("");
+                  }}
                   className="w-full rounded-lg border border-[#cfdbe3] px-5 py-3.5 text-sm font-semibold text-[#38506a] transition hover:bg-[#f7fafc]"
                 >
                   Already have an account? Sign in
