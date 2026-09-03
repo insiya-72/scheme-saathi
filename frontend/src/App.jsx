@@ -5673,6 +5673,38 @@ function AIAssistant({
   lastSchemeResults,
   lastSchemeFormData,
 }) {
+  const detectNavigationFromText = (responseText) => {
+    if (!responseText) return null;
+
+    const navigation = {};
+    const lines = responseText.split("\n");
+
+    for (const line of lines) {
+      const cleaned =
+        line
+          .replace(/^[\s\-*\u2022\d.]+/, "")
+          .trim();
+
+      if (/^find my schemes?$/i.test(cleaned)) {
+        navigation.finder = true;
+      }
+
+      if (/^explore schemes?$/i.test(cleaned)) {
+        navigation.explore = true;
+      }
+    }
+
+    if (
+      !navigation.finder &&
+      !navigation.explore
+    ) {
+      return null;
+    }
+
+    return navigation;
+  };
+
+
   const getCheckedSchemeNames = () => {
     if (!lastSchemeResults) return [];
 
@@ -5975,6 +6007,11 @@ function AIAssistant({
           disclaimer:
             data.disclaimer,
         },
+        navigation:
+          data.navigation ||
+          detectNavigationFromText(
+            data.reply,
+          ),
       };
 
       setMessages((prev) => [
@@ -5991,6 +6028,12 @@ function AIAssistant({
         );
       }
     } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to connect to the AI Assistant. Please try again.",
+      );
+
       setMessages((prev) => [
         ...prev,
         {
@@ -6132,6 +6175,39 @@ function AIAssistant({
                 <div className="whitespace-pre-wrap">
                   {message.content}
                 </div>
+
+                {message.role === "assistant" &&
+                  index === 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onNavigate("explore")
+                        }
+                        className="flex items-center gap-1.5 rounded-lg border border-[#d4e8d4] bg-[#f0f8f0] px-3 py-2 text-[12px] font-semibold text-[#3d7a42] transition hover:bg-[#e4f2e4]"
+                      >
+                        <BookOpen size={13} />
+                        Explore Schemes
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isLoggedIn) {
+                            onNavigate("finder");
+                          } else {
+                            onNavigate("login");
+                          }
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#dce4ea] bg-[#f7fafc] px-3 py-2 text-[12px] font-semibold text-[#145c91] transition hover:bg-[#eef7fb]"
+                      >
+                        <Search size={13} />
+                        Find My Schemes
+                      </button>
+
+                    </div>
+                  )}
 
                 {message.structured && (
                   <div className="mt-4 space-y-3">
@@ -6569,6 +6645,43 @@ function AIAssistant({
                 </div>
               )}
 
+
+              {message.role === "assistant" &&
+                message.navigation && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+
+                    {message.navigation.explore && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onNavigate("explore")
+                        }
+                        className="flex items-center gap-1.5 rounded-lg border border-[#d4e8d4] bg-[#f0f8f0] px-3 py-2 text-[12px] font-semibold text-[#3d7a42] transition hover:bg-[#e4f2e4]"
+                      >
+                        <BookOpen size={13} />
+                        Explore Schemes
+                      </button>
+                    )}
+
+                    {message.navigation.finder && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isLoggedIn) {
+                            onNavigate("finder");
+                          } else {
+                            onNavigate("login");
+                          }
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#dce4ea] bg-[#f7fafc] px-3 py-2 text-[12px] font-semibold text-[#145c91] transition hover:bg-[#eef7fb]"
+                      >
+                        <Search size={13} />
+                        Find My Schemes
+                      </button>
+                    )}
+
+                  </div>
+                )}
             </div>
           ))}
 
@@ -6587,6 +6700,14 @@ function AIAssistant({
                   Thinking...
                 </span>
               </div>
+            </div>
+          )}
+
+
+          {error && !loading && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
+              <span className="mt-0.5">!</span>
+              <span>{error}</span>
             </div>
           )}
 
