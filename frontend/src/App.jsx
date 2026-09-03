@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -2432,6 +2432,10 @@ function SchemeFinder({
           normalizedResults,
         );
 
+        if (onResultsReady) {
+          onResultsReady(normalizedResults, formData);
+        }
+
         window.scrollTo({
           top: 0,
           behavior: "smooth",
@@ -3379,6 +3383,56 @@ function StepOne({
   formData,
   updateField,
 }) {
+  const [statesList, setStatesList] = useState([]);
+  const [districtsList, setDistrictsList] = useState([]);
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState("");
+
+  useEffect(() => {
+    fetchStates();
+  }, []);
+
+  useEffect(() => {
+    if (formData.state) {
+      fetchDistricts(formData.state);
+    } else {
+      setDistrictsList([]);
+    }
+  }, [formData.state]);
+
+  const fetchStates = async () => {
+    setLocationLoading(true);
+    setLocationError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/locations/states`);
+      if (!response.ok) throw new Error("Failed to fetch states");
+      const data = await response.json();
+      setStatesList(data.states || []);
+    } catch (err) {
+      setLocationError("Failed to load states. Please refresh the page.");
+      setStatesList([]);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const fetchDistricts = async (state) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/locations/states/${encodeURIComponent(state)}/districts`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch districts");
+      const data = await response.json();
+      setDistrictsList(data.districts || []);
+    } catch (err) {
+      setDistrictsList([]);
+    }
+  };
+
+  const handleStateChange = (value) => {
+    updateField("state", value);
+    updateField("district", "");
+  };
   return (
     <div>
       <SectionIntro
@@ -3500,54 +3554,46 @@ function StepOne({
           value={
             formData.state
           }
-          onChange={(value) =>
-            updateField(
-              "state",
-              value,
-            )
+          onChange={handleStateChange}
+          options={
+            locationLoading
+              ? []
+              : statesList.map((s) => ({
+                  value: s.name,
+                  label: s.name,
+                }))
           }
-          options={[
-            {
-              value:
-                "uttar_pradesh",
-              label:
-                "Uttar Pradesh",
-            },
-            {
-              value: "bihar",
-              label: "Bihar",
-            },
-            {
-              value:
-                "rajasthan",
-              label:
-                "Rajasthan",
-            },
-            {
-              value:
-                "madhya_pradesh",
-              label:
-                "Madhya Pradesh",
-            },
-            {
-              value: "delhi",
-              label: "Delhi",
-            },
-          ]}
+          helper={
+            locationError
+              ? locationError
+              : locationLoading
+              ? "Loading states..."
+              : undefined
+          }
         />
 
-        <TextField
+        <SelectField
           label="District"
-          placeholder="Enter your district"
           value={
             formData.district
           }
           onChange={(value) =>
-            updateField(
-              "district",
-              value,
-            )
+            updateField("district", value)
           }
+          options={
+            !formData.state
+              ? []
+              : districtsList.map((d) => ({
+                  value: d,
+                  label: d,
+                }))
+          }
+          helper={
+            !formData.state
+              ? "Select a state first"
+              : undefined
+          }
+          disabled={!formData.state}
         />
 
         <TextField
