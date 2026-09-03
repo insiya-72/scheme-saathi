@@ -515,7 +515,13 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] =
     useState(false);
 
-  const openSchemeFinder = () => {
+  
+  const [lastSchemeResults, setLastSchemeResults] =
+    useState(null);
+
+  const [lastSchemeFormData, setLastSchemeFormData] =
+    useState(null);
+const openSchemeFinder = () => {
     if (isLoggedIn) {
       setView("finder");
     } else {
@@ -619,7 +625,11 @@ function App() {
           isLoggedIn={
             isLoggedIn
           }
-        />
+                  onResultsReady={(results, formData) => {
+            setLastSchemeResults(results);
+            setLastSchemeFormData(formData);
+          }}
+/>
       )}
     </div>
   );
@@ -5615,6 +5625,10 @@ function PartnerLocator({ onBack }) {
       {view === "ai_assistant" && (
         <AIAssistant
           onBack={() => setView("home")}
+          isLoggedIn={isLoggedIn}
+          currentUser={currentUser}
+          lastSchemeResults={lastSchemeResults}
+          lastSchemeFormData={lastSchemeFormData}
         />
       )}
 
@@ -5652,7 +5666,202 @@ const AI_LANGUAGES = [
   { code: "mni", display: "মৈতৈলোন (Manipuri)" },
 ];
 
-function AIAssistant({ onBack }) {
+function AIAssistant({
+  onBack,
+  isLoggedIn,
+  currentUser,
+  lastSchemeResults,
+  lastSchemeFormData,
+}) {
+  const getCheckedSchemeNames = () => {
+    if (!lastSchemeResults) return [];
+
+    const names = new Set();
+
+    const addSchemes = (list) => {
+      if (!Array.isArray(list)) return;
+
+      for (const scheme of list) {
+        const name =
+          scheme.scheme_name ||
+          scheme.name ||
+          "";
+
+        if (name) {
+          names.add(name);
+        }
+      }
+    };
+
+    addSchemes(
+      lastSchemeResults.primary?.eligible,
+    );
+
+    addSchemes(
+      lastSchemeResults.primary?.ineligible,
+    );
+
+    addSchemes(
+      lastSchemeResults.secondary?.eligible,
+    );
+
+    addSchemes(
+      lastSchemeResults.secondary?.ineligible,
+    );
+
+    return Array.from(names);
+  };
+
+  const checkedSchemeNames =
+    getCheckedSchemeNames();
+
+  const hasCheckedSchemes =
+    Boolean(
+      isLoggedIn &&
+      lastSchemeResults,
+    );
+
+  const buildSchemeContext = () => {
+    if (!lastSchemeResults) return null;
+
+    const context = {
+      user_profile: lastSchemeFormData
+        ? {
+            name:
+              currentUser?.name ||
+              lastSchemeFormData.fullName ||
+              "",
+            gender:
+              lastSchemeFormData.gender ||
+              "",
+            category:
+              lastSchemeFormData.category ||
+              "",
+            state:
+              lastSchemeFormData.state ||
+              "",
+            district:
+              lastSchemeFormData.district ||
+              "",
+            annual_income:
+              lastSchemeFormData.annualIncome ||
+              "",
+            purpose:
+              lastSchemeFormData.purpose ||
+              "",
+            business_type:
+              lastSchemeFormData.businessType ||
+              "",
+            project_cost:
+              lastSchemeFormData.projectCost ||
+              "",
+            required_loan:
+              lastSchemeFormData.requiredLoan ||
+              "",
+            education_level:
+              lastSchemeFormData.educationLevel ||
+              "",
+          }
+        : null,
+
+      eligible_schemes: [],
+      ineligible_schemes: [],
+    };
+
+    if (
+      Array.isArray(
+        lastSchemeResults.primary?.eligible,
+      )
+    ) {
+      context.eligible_schemes =
+        lastSchemeResults.primary.eligible.map(
+          (scheme) => ({
+            scheme_id:
+              scheme.scheme_id ||
+              scheme.id ||
+              "",
+            scheme_name:
+              scheme.scheme_name ||
+              scheme.name ||
+              "",
+            type: "PRIMARY",
+            reasons:
+              scheme.reasons || [],
+            financial_terms:
+              scheme.financial_terms ||
+              null,
+            source:
+              scheme.source ||
+              null,
+            required_documents:
+              scheme.required_documents ||
+              null,
+          }),
+        );
+    }
+
+    if (
+      Array.isArray(
+        lastSchemeResults.primary?.ineligible,
+      )
+    ) {
+      context.ineligible_schemes =
+        lastSchemeResults.primary.ineligible.map(
+          (scheme) => ({
+            scheme_id:
+              scheme.scheme_id ||
+              scheme.id ||
+              "",
+            scheme_name:
+              scheme.scheme_name ||
+              scheme.name ||
+              "",
+            type: "PRIMARY",
+            failures:
+              scheme.failures || [],
+          }),
+        );
+    }
+
+    if (
+      Array.isArray(
+        lastSchemeResults.secondary?.eligible,
+      )
+    ) {
+      context.eligible_schemes =
+        context.eligible_schemes.concat(
+          lastSchemeResults.secondary.eligible.map(
+            (scheme) => ({
+              scheme_id:
+                scheme.scheme_id ||
+                scheme.id ||
+                "",
+              scheme_name:
+                scheme.scheme_name ||
+                scheme.name ||
+                "",
+              type:
+                "SECONDARY_CONNECTED",
+              reasons:
+                scheme.reasons || [],
+              financial_terms:
+                scheme.financial_terms ||
+                null,
+              source:
+                scheme.source ||
+                null,
+              required_documents:
+                scheme.required_documents ||
+                null,
+            }),
+          ),
+        );
+    }
+
+    return context;
+  };
+
+
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -5716,6 +5925,8 @@ function AIAssistant({ onBack }) {
           body: JSON.stringify({
             message: trimmed,
             language: selectedLanguage,
+            scheme_context:
+              buildSchemeContext(),
           }),
         },
       );
@@ -5901,6 +6112,62 @@ function AIAssistant({ onBack }) {
                 <div className="whitespace-pre-wrap">
                   {message.content}
                 </div>
+
+                {message.role === "assistant" &&
+                  index === 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+
+                      {hasCheckedSchemes && (
+                        <button
+                          onClick={() =>
+                            sendMessage(
+                              "Show me my previous scheme results",
+                            )
+                          }
+                          className="rounded-lg border border-[#e0d8c8] bg-[#faf8f0] px-3 py-2 text-[12px] font-semibold text-[#8a7a50] transition hover:bg-[#f5f0e0]"
+                        >
+                          Previous Results
+                        </button>
+                      )}
+
+                      {hasCheckedSchemes &&
+                        checkedSchemeNames.length > 0 && (
+                          <div className="mt-2 w-full">
+                            <p className="mb-1.5 text-[11px] font-semibold text-[#718096]">
+                              You previously checked:
+                            </p>
+
+                            <div className="flex flex-wrap gap-1.5">
+                              {checkedSchemeNames.map(
+                                (name) => (
+                                  <button
+                                    key={name}
+                                    onClick={() =>
+                                      sendMessage(
+                                        `Tell me about ${name}`,
+                                      )
+                                    }
+                                    className="rounded-full border border-[#c8d8e8] bg-[#f0f6fb] px-3 py-1.5 text-[11px] font-semibold text-[#145c91] transition hover:bg-[#dceaf5]"
+                                  >
+                                    {name}
+                                  </button>
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      {isLoggedIn &&
+                        !hasCheckedSchemes && (
+                          <div className="w-full rounded-lg border border-[#e3e8ed] bg-[#f8fafb] px-3 py-2 text-[11px] text-[#718096]">
+                            You have not checked any schemes yet.
+                            Use <strong>Find My Schemes</strong>{" "}
+                            to check your eligibility.
+                          </div>
+                        )}
+
+                    </div>
+                  )}
               </div>
 
               {message.role === "user" && (
