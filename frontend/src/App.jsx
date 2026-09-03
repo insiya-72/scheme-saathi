@@ -5952,14 +5952,34 @@ function AIAssistant({
 
       const data = await response.json();
 
+      const assistantMessage = {
+        role: "assistant",
+        content:
+          data.reply ||
+          "I could not generate a response. Please try again.",
+        structured: {
+          primary_recommendation:
+            data.primary_recommendation,
+          other_eligible_schemes:
+            data.other_eligible_schemes,
+          out_of_scope_schemes:
+            data.out_of_scope_schemes,
+          emi_projection:
+            data.emi_projection,
+          matched_channel_partners:
+            data.matched_channel_partners,
+          ineligibility_explanations:
+            data.ineligibility_explanations,
+          application_guidance:
+            data.application_guidance,
+          disclaimer:
+            data.disclaimer,
+        },
+      };
+
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content:
-            data.reply ||
-            "I could not generate a response. Please try again.",
-        },
+        assistantMessage,
       ]);
 
       if (
@@ -6112,6 +6132,379 @@ function AIAssistant({
                 <div className="whitespace-pre-wrap">
                   {message.content}
                 </div>
+
+                {message.structured && (
+                  <div className="mt-4 space-y-3">
+
+                    {/* Best-fit recommendation */}
+                    {message.structured.primary_recommendation && (
+                      <div className="rounded-xl border border-[#d4e8d4] bg-[#f0f8f0] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#3d7a42]">
+                            Best Fit
+                          </p>
+
+                          {message.structured.primary_recommendation.score != null && (
+                            <span className="rounded-full bg-[#3d7a42] px-2.5 py-0.5 text-[10px] font-bold text-white">
+                              AI Score: {message.structured.primary_recommendation.score}/100
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="mt-1 font-serif text-[16px] font-bold text-[#1d3a22]">
+                          {message.structured.primary_recommendation.scheme_name}
+                        </p>
+
+                        {message.structured.primary_recommendation.reasons?.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {message.structured.primary_recommendation.reasons.map(
+                              (reason, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-start gap-2 text-[12px] text-[#4a6b4e]"
+                                >
+                                  <span className="mt-0.5 shrink-0">✓</span>
+                                  <span>{reason}</span>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        )}
+
+                        {message.structured.primary_recommendation.official_url && (
+                          <a
+                            href={message.structured.primary_recommendation.official_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex text-[11px] text-[#145c91] underline"
+                          >
+                            Official Website ↗
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Other eligible schemes */}
+                    {message.structured.other_eligible_schemes?.length > 0 && (
+                      <div className="rounded-xl border border-[#dce4ea] bg-[#f7fafc] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7a8998]">
+                          Other Eligible Options
+                        </p>
+
+                        <div className="mt-2 space-y-2">
+                          {message.structured.other_eligible_schemes.map(
+                            (scheme, index) => (
+                              <div
+                                key={index}
+                                className="rounded-lg bg-white px-3 py-2 text-[12px]"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-start gap-2">
+                                    <span className="font-bold text-[#145c91]">
+                                      {scheme.rank || index + 1}.
+                                    </span>
+
+                                    <span className="font-semibold text-[#43566f]">
+                                      {scheme.scheme_name}
+                                    </span>
+                                  </div>
+
+                                  {scheme.score != null && (
+                                    <span className="rounded-full bg-[#eef7fb] px-2 py-0.5 text-[10px] font-bold text-[#145c91]">
+                                      {scheme.score}/100
+                                    </span>
+                                  )}
+                                </div>
+
+                                {scheme.official_url && (
+                                  <a
+                                    href={scheme.official_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ml-5 mt-1 inline-flex text-[11px] text-[#145c91] underline"
+                                  >
+                                    Official Website ↗
+                                  </a>
+                                )}
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Outside scope */}
+                    {message.structured.out_of_scope_schemes?.length > 0 && (
+                      <div className="rounded-xl border border-[#e8e0d0] bg-[#fdf8f0] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7a50]">
+                          Outside Scheme Saathi Scope
+                        </p>
+
+                        <div className="mt-2 space-y-2">
+                          {message.structured.out_of_scope_schemes.map(
+                            (scheme, index) => (
+                              <div
+                                key={index}
+                                className="rounded-lg bg-white px-3 py-2 text-[12px]"
+                              >
+                                <p className="font-semibold text-[#43566f]">
+                                  {scheme.name}
+                                </p>
+
+                                {scheme.reason && (
+                                  <p className="mt-1 text-[11px] text-[#8a7a50]">
+                                    {scheme.reason}
+                                  </p>
+                                )}
+
+                                {scheme.official_url && (
+                                  <a
+                                    href={scheme.official_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 inline-flex text-[11px] text-[#145c91] underline"
+                                  >
+                                    Official Website ↗
+                                  </a>
+                                )}
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* EMI projection */}
+                    {message.structured.emi_projection && (
+                      <div className="rounded-xl border border-[#d8dde8] bg-[#f7f8fc] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6a7a8e]">
+                          EMI Projection
+                        </p>
+
+                        <div className="mt-2 grid grid-cols-2 gap-3 text-[12px]">
+                          <div>
+                            <span className="text-[#7a8998]">
+                              Monthly EMI:
+                            </span>{" "}
+                            <strong>
+                              ₹{message.structured.emi_projection.monthly_emi}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="text-[#7a8998]">
+                              Total Interest:
+                            </span>{" "}
+                            <strong>
+                              ₹{message.structured.emi_projection.total_interest}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="text-[#7a8998]">
+                              Total Repayment:
+                            </span>{" "}
+                            <strong>
+                              ₹{message.structured.emi_projection.total_repayment}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="text-[#7a8998]">
+                              Tenure:
+                            </span>{" "}
+                            <strong>
+                              {message.structured.emi_projection.tenure_months} months
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Channel partners */}
+                    {message.structured.matched_channel_partners?.length > 0 && (
+                      <div className="rounded-xl border border-[#e0d8c8] bg-[#faf8f0] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7a50]">
+                          Matched Channel Partners
+                        </p>
+
+                        <div className="mt-2 space-y-2">
+                          {message.structured.matched_channel_partners.map(
+                            (partner, index) => (
+                              <div
+                                key={index}
+                                className="rounded-lg bg-white p-3 text-[12px]"
+                              >
+                                <p className="font-bold text-[#2d4050]">
+                                  {partner.name}
+                                </p>
+
+                                <p className="mt-0.5 text-[#718096]">
+                                  {partner.type}
+                                  {partner.distance_km != null
+                                    ? ` • ${partner.distance_km} km`
+                                    : ""}
+                                </p>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ineligibility explanations */}
+                    {message.structured.ineligibility_explanations?.length > 0 && (
+                      <div className="rounded-xl border border-[#f0d4d4] bg-[#fdf5f5] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#a04040]">
+                          Ineligibility Explanation
+                        </p>
+
+                        <div className="mt-2 space-y-3">
+                          {message.structured.ineligibility_explanations.map(
+                            (explanation, index) => (
+                              <div key={index}>
+                                <p className="text-[13px] font-bold text-[#3a2020]">
+                                  {explanation.scheme_name}
+                                </p>
+
+                                {explanation.criterion_status?.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {explanation.criterion_status.map(
+                                      (criterion, criterionIndex) => (
+                                        <div
+                                          key={criterionIndex}
+                                          className="flex items-start gap-2 text-[12px]"
+                                        >
+                                          <span
+                                            className={
+                                              criterion.satisfied
+                                                ? "text-green-600"
+                                                : "text-red-600"
+                                            }
+                                          >
+                                            {criterion.satisfied ? "✓" : "✗"}
+                                          </span>
+
+                                          <span>
+                                            <strong>
+                                              {criterion.criterion}:
+                                            </strong>{" "}
+                                            {criterion.user_value} →{" "}
+                                            {criterion.message}
+                                          </span>
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+
+                                {explanation.failure_reasons?.length > 0 && (
+                                  <div className="mt-1 space-y-1">
+                                    {explanation.failure_reasons.map(
+                                      (reason, reasonIndex) => (
+                                        <div
+                                          key={reasonIndex}
+                                          className="flex items-start gap-2 text-[12px] text-[#6a3030]"
+                                        >
+                                          <span>•</span>
+                                          <span>{reason}</span>
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Application guidance */}
+                    {message.structured.application_guidance?.length > 0 && (
+                      <div className="rounded-xl border border-[#d4e2e9] bg-[#f0f6fa] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#1769a8]">
+                          Application Guidance
+                        </p>
+
+                        <div className="mt-2 space-y-3">
+                          {message.structured.application_guidance.map(
+                            (guidance, index) => (
+                              <div
+                                key={index}
+                                className="rounded-lg bg-white p-3 text-[12px]"
+                              >
+                                <p className="font-bold text-[#2d4050]">
+                                  {guidance.scheme_name}
+                                </p>
+
+                                {guidance.status === "verified" &&
+                                  guidance.application_steps && (
+                                    <div className="mt-1 space-y-1">
+                                      {guidance.application_steps.map(
+                                        (step, stepIndex) => (
+                                          <div
+                                            key={stepIndex}
+                                            className="flex items-start gap-2 text-[#3a5a3a]"
+                                          >
+                                            <span className="mt-0.5">
+                                              ✓
+                                            </span>
+                                            <span>
+                                              {typeof step === "string"
+                                                ? step
+                                                : step.description ||
+                                                  step.step ||
+                                                  JSON.stringify(step)}
+                                            </span>
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+
+                                {guidance.status === "channel_partner_needed" && (
+                                  <div className="mt-2 rounded-lg border border-[#e8e0d0] bg-[#fdf8f0] p-2">
+                                    <p className="text-[11px] font-semibold text-[#8a7a50]">
+                                      {guidance.message ||
+                                        "Channel Partner assistance recommended."}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {guidance.status === "partial" && (
+                                  <p className="mt-1 text-[11px] text-[#718096]">
+                                    {guidance.message ||
+                                      "Limited application information available."}
+                                  </p>
+                                )}
+
+                                {guidance.official_url && (
+                                  <a
+                                    href={guidance.official_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 inline-flex text-[11px] text-[#145c91] underline"
+                                  >
+                                    Official Website ↗
+                                  </a>
+                                )}
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI disclaimer */}
+                    {message.structured.disclaimer && (
+                      <div className="rounded-lg border border-[#e3e8ed] bg-[#f8fafb] p-3 text-[10px] leading-4 text-[#8a97a3]">
+                        {message.structured.disclaimer}
+                      </div>
+                    )}
+
+                  </div>
+                )}
 
                 {message.role === "assistant" &&
                   index === 0 && (
