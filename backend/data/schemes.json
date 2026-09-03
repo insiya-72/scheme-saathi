@@ -147,6 +147,18 @@
         ]
       },
 
+      "application_process_verified": true,
+      "application_steps": [
+        "Visit the nearest authorized Channelizing Agency (SCA/CA) office or official NSFDC portal",
+        "Obtain and fill the application form for Micro Finance Scheme",
+        "Submit required documents: Valid Caste Certificate, Income Proof, KYC/Identity Documents",
+        "Submit Business/Activity Documents as required by the channel agency",
+        "Channel agency verifies documents and conducts field verification",
+        "Application forwarded to NSFDC for approval",
+        "Upon approval, loan disbursed through the channelizing agency",
+        "Repayment begins after moratorium period (3 months) on quarterly frequency"
+      ],
+
       "matching": {
         "semantic_tags": [
           "micro finance",
@@ -262,6 +274,17 @@
         "direct_application_to_nsfdc": false,
         "implementing_partner_type": "NBFC-MFI"
       },
+
+      "application_process_verified": true,
+      "application_steps": [
+        "Contact an approved NBFC-Micro Finance Institution (NBFC-MFI) in your area",
+        "Obtain and fill the application form for Aajeevika Micro-Finance Yojana",
+        "Submit required documents: Valid Caste Certificate, Income Proof, KYC/Identity Documents",
+        "Submit Business/Activity Documents as required by the NBFC-MFI",
+        "NBFC-MFI verifies documents and conducts field verification",
+        "Upon approval, loan disbursed through the NBFC-MFI",
+        "Repayment begins after moratorium period (3 months)"
+      ],
 
       "matching": {
         "semantic_tags": [
@@ -399,6 +422,18 @@
         ]
       },
 
+      "application_process_verified": true,
+      "application_steps": [
+        "Visit the nearest authorized Channelizing Agency (SCA/CA), Bank, or RRB",
+        "Obtain and fill the application form for Term Loan scheme",
+        "Submit required documents: Valid Caste Certificate, Income Proof, KYC/Identity Documents",
+        "Submit Detailed Project/Business Report and Business Registration documents as applicable",
+        "Channel agency verifies documents and conducts project feasibility assessment",
+        "Application forwarded to NSFDC for sanction",
+        "Upon sanction, loan disbursed through the channelizing agency",
+        "Repayment begins after moratorium period (6 months, extendable to 12 months for plantation/construction)"
+      ],
+
       "matching": {
         "semantic_tags": [
           "term loan",
@@ -535,6 +570,17 @@
         ],
         "direct_application_to_nsfdc": false
       },
+
+      "application_process_verified": true,
+      "application_steps": [
+        "Visit the nearest Cooperative Society, Cooperative Bank, or Small Finance Bank",
+        "Obtain and fill the application form for Udyam Nidhi Yojana",
+        "Submit required documents: Valid Caste Certificate, Income Proof, KYC/Identity Documents",
+        "Submit Business/Activity Documents as required by the channel agency",
+        "Channel agency verifies documents and conducts feasibility assessment",
+        "Upon approval, loan disbursed through the channelizing agency",
+        "Repayment begins after moratorium period (3 months)"
+      ],
 
       "matching": {
         "semantic_tags": [
@@ -676,6 +722,17 @@
         "direct_application_to_nsfdc": false
       },
 
+      "application_process_verified": true,
+      "application_steps": [
+        "Visit the nearest authorized Channelizing Agency (SCA/CA) office",
+        "Obtain and fill the application form for Educational Loan Scheme",
+        "Submit required documents: Valid Caste Certificate, Income Proof, KYC/Identity Documents",
+        "Submit Admission/Enrollment Evidence and Course Fee/Institution Fee Documents",
+        "Channel agency verifies documents and forwards application to NSFDC",
+        "Upon approval, loan disbursed directly to the institution or through the channelizing agency",
+        "Repayment begins after course completion + 1 year moratorium (or 6 months alternative)"
+      ],
+
       "matching": {
         "semantic_tags": [
           "education loan",
@@ -811,6 +868,42 @@
         "status": "active",
         "verified_on": "2026-08-31"
       }
+    },
+
+    {
+      "id": "PMEGP",
+      "name": "Prime Minister's Employment Generation Programme",
+      "short_name": "PMEGP",
+      "type": "OUT_OF_SCOPE",
+      "authority": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+      "reason": "Government scheme for all categories, not specifically for SC/NSFDC. Provided as out-of-scope alternative when no Scheme Saathi scheme matches.",
+      "official_url": "https://www.kviconline.gov.in/pmegp/pmegpHome/index.jsp",
+      "eligibility_note": "Open to all Indian citizens above 18 years. Subsidy ranges from 15% to 35% depending on category and location.",
+      "verified_on": "2026-08-31"
+    },
+
+    {
+      "id": "MUDRA",
+      "name": "Pradhan Mantri MUDRA Yojana",
+      "short_name": "MUDRA",
+      "type": "OUT_OF_SCOPE",
+      "authority": "Ministry of Finance / Small Industries Development Bank of India (SIDBI)",
+      "reason": "Government scheme for all categories, not specifically for SC/NSFDC. Provided as out-of-scope alternative when no Scheme Saathi scheme matches.",
+      "official_url": "https://www.mudra.org.in/",
+      "eligibility_note": "Open to all Indian citizens. Loans up to ₹10 lakh for non-farm income-generating activities. Three categories: Shishu (up to ₹50,000), Kishore (₹50,001 to ₹5 lakh), Tarun (₹5,00,001 to ₹10 lakh).",
+      "verified_on": "2026-08-31"
+    },
+
+    {
+      "id": "CGTMSE",
+      "name": "Credit Guarantee Fund Trust for Micro and Small Enterprises",
+      "short_name": "CGTMSE",
+      "type": "OUT_OF_SCOPE",
+      "authority": "Ministry of MSME / SIDBI",
+      "reason": "Government scheme for all categories, not specifically for SC/NSFDC. Provided as out-of-scope alternative when no Scheme Saathi scheme matches.",
+      "official_url": "https://www.cgtmse.in/",
+      "eligibility_note": "For existing and new micro and small enterprises. Collateral-free loans up to ₹2 crore available through participating financial institutions.",
+      "verified_on": "2026-08-31"
     }
   ]
 }
