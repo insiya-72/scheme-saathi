@@ -5679,8 +5679,8 @@ function AIAssistant({ onBack }) {
     inputRef.current?.focus();
   }, []);
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  const sendMessage = async (overrideText) => {
+    const trimmed = (overrideText || input).trim();
 
     if (!trimmed || loading) return;
 
@@ -5695,24 +5695,88 @@ function AIAssistant({ onBack }) {
     setInput("");
     setLoading(true);
 
-    /*
-      Foundation response only.
-      Actual AI backend integration will be added
-      in the next AI implementation commit.
-    */
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem(
+        "scheme_saathi_token",
+      );
+
+      const headers = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/ai/assistant`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            message: trimmed,
+            language: selectedLanguage,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        let errorMessage =
+          "AI Assistant is temporarily unavailable.";
+
+        try {
+          const errorData =
+            await response.json();
+
+          if (errorData?.detail) {
+            errorMessage =
+              String(errorData.detail);
+          }
+        } catch {
+          // Keep default message.
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "I am ready to help with Scheme Saathi. AI-backed scheme guidance will be connected in the next stage.",
+            data.reply ||
+            "I could not generate a response. Please try again.",
         },
       ]);
 
+      if (
+        data.language_used &&
+        data.language_used !== selectedLanguage
+      ) {
+        setSelectedLanguage(
+          data.language_used,
+        );
+      }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "I am unable to process your request at this time. The AI service may be temporarily unavailable. Please try again.",
+        },
+      ]);
+
+      console.error(
+        "AI Assistant error:",
+        error,
+      );
+    } finally {
       setLoading(false);
       inputRef.current?.focus();
-    }, 500);
+    }
   };
 
   const handleKeyDown = (event) => {
