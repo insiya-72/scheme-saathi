@@ -630,6 +630,7 @@ function LandingPage({
   onFindScheme,
   onExplore,
   onLogin,
+  onNavigate,
   isLoggedIn,
   onLogout,
 }) {
@@ -5072,6 +5073,12 @@ function AuthBenefit({
         />
       )}
 
+      {view === "partner_locator" && (
+        <PartnerLocator
+          onBack={() => setView("home")}
+        />
+      )}
+
   );
 }
 
@@ -5289,5 +5296,319 @@ function EMICalculator({ onBack }) {
 /* =========================================================
    PARTNER LOCATOR
 ========================================================= */
+
+
+function PartnerLocator({ onBack }) {
+  const [state, setState] = useState("");
+  const [district, setDistrict] = useState("");
+  const [partners, setPartners] = useState([]);
+  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [statesList, setStatesList] = useState([]);
+  const [districtsList, setDistrictsList] = useState([]);
+  const [locationLoading, setLocationLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStates();
+  }, []);
+
+  useEffect(() => {
+    if (state) {
+      fetchDistricts(state);
+    } else {
+      setDistrictsList([]);
+    }
+  }, [state]);
+
+  const fetchStates = async () => {
+    setLocationLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/locations/states`);
+      if (!response.ok) throw new Error("Failed to fetch states");
+      const data = await response.json();
+      setStatesList(data.states || []);
+    } catch {
+      setStatesList([]);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const fetchDistricts = async (selectedState) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/locations/states/${encodeURIComponent(selectedState)}/districts`);
+      if (!response.ok) throw new Error("Failed to fetch districts");
+      const data = await response.json();
+      setDistrictsList(data.districts || []);
+    } catch {
+      setDistrictsList([]);
+    }
+  };
+
+  const handleStateChange = (value) => {
+    setState(value);
+    setDistrict("");
+  };
+
+  const search = async () => {
+    setError("");
+    setPartners([]);
+    setSearched(false);
+    setMessage("");
+
+    if (!state) {
+      setError("Please select a state.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/partners/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          state: state,
+          district: district || undefined,
+          max_results: 10,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Partner search failed.");
+      }
+
+      const data = await response.json();
+      setPartners(data.partners || []);
+      setSearched(true);
+      setMessage(data.message || "");
+    } catch {
+      setError("Unable to connect to the backend. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f4f8fb]">
+      <header className="border-b border-[#dce4ea] bg-white">
+        <div className="mx-auto flex min-h-[82px] max-w-[1200px] items-center justify-between px-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm font-semibold text-[#53657b] transition hover:text-[#145c91]"
+          >
+            <ArrowLeft size={18} />
+            Back to Home
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-9 w-9 items-center justify-center text-[#c6a56b]">
+              <div className="absolute inset-1 rotate-45 rounded-md border-2 border-[#c6a56b]" />
+              <Sparkles size={17} />
+            </div>
+            <p className="font-serif text-[18px] font-bold tracking-wide text-[#172a43]">
+              SCHEME SAATHI
+            </p>
+          </div>
+
+          <span className="hidden text-xs font-semibold text-[#718096] sm:block">
+            Partner Locator
+          </span>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1000px] px-6 py-12">
+        <div className="max-w-3xl">
+          <p className="text-[11px] font-bold tracking-[0.16em] text-[#1769a8]">
+            CHANNEL PARTNER LOCATOR
+          </p>
+          <h1 className="mt-3 font-serif text-4xl font-bold text-[#172a43] md:text-5xl">
+            Find a verified channel partner near you.
+          </h1>
+          <p className="mt-4 text-base leading-7 text-[#66788d]">
+            Search by state and district to find verified NSFDC channel partners for your scheme application.
+          </p>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-[#d7e2e9] bg-white p-8 shadow-sm">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-[13px] font-bold text-[#2c4058]">
+                State
+              </label>
+              <SelectField
+                label=""
+                value={state}
+                onChange={handleStateChange}
+                options={
+                  locationLoading
+                    ? []
+                    : statesList.map((s) => ({
+                        value: s.name,
+                        label: s.name,
+                      }))
+                }
+                helper={
+                  locationLoading ? "Loading states..." : undefined
+                }
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[13px] font-bold text-[#2c4058]">
+                District (optional)
+              </label>
+              <SelectField
+                label=""
+                value={district}
+                onChange={setDistrict}
+                options={
+                  !state
+                    ? []
+                    : districtsList.map((d) => ({
+                        value: d,
+                        label: d,
+                      }))
+                }
+                helper={
+                  !state ? "Select a state first" : undefined
+                }
+                disabled={!state}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700">
+              <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+              <span className="leading-5 font-medium">{error}</span>
+            </div>
+          )}
+
+          <button
+            onClick={search}
+            disabled={loading}
+            className="mt-6 flex items-center gap-2 rounded-lg bg-[#145c91] px-6 py-3.5 font-semibold text-white transition hover:bg-[#104d7b] disabled:opacity-60"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search size={16} />
+                Search Partners
+              </>
+            )}
+          </button>
+        </div>
+
+        {searched && (
+          <div className="mt-8">
+            {message && (
+              <p className="mb-4 text-sm text-[#60758a]">{message}</p>
+            )}
+
+            {partners.length === 0 ? (
+              <div className="rounded-2xl border border-[#d7e2e9] bg-white p-8 text-center shadow-sm">
+                <MapPin size={32} className="mx-auto text-[#a1acb6]" />
+                <p className="mt-3 font-serif text-xl font-bold text-[#3b4f63]">
+                  No partners found
+                </p>
+                <p className="mt-2 text-sm text-[#718096]">
+                  Try searching with a different state or district.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {partners.map((partner) => (
+                  <div
+                    key={partner.partner_id}
+                    className="rounded-2xl border border-[#d7e2e9] bg-white p-6 shadow-sm"
+                  >
+                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-[#e7f3f8] px-3 py-1 text-[10px] font-bold tracking-[0.1em] text-[#1769a8]">
+                            {partner.type}
+                          </span>
+                          {partner.verified && (
+                            <span className="rounded-full bg-[#edf6ec] px-3 py-1 text-[10px] font-bold text-[#47744a]">
+                              VERIFIED
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="mt-3 font-serif text-xl font-bold text-[#1b3148]">
+                          {partner.name}
+                        </h3>
+
+                        {partner.address && (
+                          <p className="mt-2 flex items-start gap-1.5 text-sm text-[#60758a]">
+                            <MapPin size={14} className="mt-0.5 shrink-0" />
+                            {partner.address}
+                          </p>
+                        )}
+
+                        {partner.contact && (
+                          <p className="mt-1 text-sm text-[#60758a]">
+                            Contact: {partner.contact}
+                          </p>
+                        )}
+
+                        {partner.distance_km != null && (
+                          <p className="mt-1 text-sm font-semibold text-[#145c91]">
+                            {partner.distance_km} km away
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="shrink-0 space-y-2 text-right">
+                        {partner.max_loan_amount_handled && (
+                          <div className="rounded-lg bg-[#f7fafc] px-3 py-2">
+                            <p className="text-[10px] text-[#84919d]">Max Loan Handled</p>
+                            <p className="text-sm font-bold text-[#263b52]">
+                              ₹{Number(partner.max_loan_amount_handled).toLocaleString("en-IN")}
+                            </p>
+                          </div>
+                        )}
+
+                        {partner.official_url && (
+                          <a
+                            href={partner.official_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-[#145c91] underline hover:text-[#0d4a78]"
+                          >
+                            Official Website ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {partner.supported_loan_categories?.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {partner.supported_loan_categories.map((cat) => (
+                          <span
+                            key={cat}
+                            className="rounded-full border border-[#dce4ea] bg-[#f7fafc] px-2.5 py-1 text-[10px] font-semibold text-[#53657b]"
+                          >
+                            {formatValue(cat)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
 
 export default App;
