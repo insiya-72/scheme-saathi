@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,6 +12,9 @@ import {
   LockKeyhole,
   LogIn,
   MapPin,
+  Loader2,
+  Send,
+  BookOpen,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -5608,7 +5611,318 @@ function PartnerLocator({ onBack }) {
         )}
       </main>
     </div>
+
+      {view === "ai_assistant" && (
+        <AIAssistant
+          onBack={() => setView("home")}
+        />
+      )}
+
   );
 }
 
+
+/* =========================================================
+   AI ASSISTANT FOUNDATION
+========================================================= */
+
+const AI_LANGUAGES = [
+  { code: "en", display: "English" },
+  { code: "hi", display: "हिन्दी (Hindi)" },
+  { code: "bn", display: "বাংলা (Bengali)" },
+  { code: "ta", display: "தமிழ் (Tamil)" },
+  { code: "te", display: "తెలుగు (Telugu)" },
+  { code: "mr", display: "मराठी (Marathi)" },
+  { code: "gu", display: "ગુજરાતી (Gujarati)" },
+  { code: "kn", display: "ಕನ್ನಡ (Kannada)" },
+  { code: "ml", display: "മലയാളം (Malayalam)" },
+  { code: "pa", display: "ਪੰਜਾਬੀ (Punjabi)" },
+  { code: "or", display: "ଓଡ଼ିଆ (Odia)" },
+  { code: "as", display: "অসমীয়া (Assamese)" },
+  { code: "ur", display: "اردو (Urdu)" },
+  { code: "ne", display: "नेपाली (Nepali)" },
+  { code: "sa", display: "संस्कृत (Sanskrit)" },
+  { code: "mai", display: "मैथिली (Maithili)" },
+  { code: "sat", display: "ᱥᱟᱱᱛᱟᱲᱤ (Santali)" },
+  { code: "sd", display: "سنڌي (Sindhi)" },
+  { code: "brx", display: "बड़ो (Bodo)" },
+  { code: "doi", display: "डोगरी (Dogri)" },
+  { code: "ks", display: "कॉशुर (Kashmiri)" },
+  { code: "kok", display: "कोंकणी (Konkani)" },
+  { code: "mni", display: "মৈতৈলোন (Manipuri)" },
+];
+
+function AIAssistant({ onBack }) {
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "Hii! I am the Scheme Saathi AI Assistant.\n\nI can help you understand government schemes, eligibility, EMI and application guidance.\n\nWhat would you like to do?",
+    },
+  ]);
+
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [showLangMenu, setShowLangMenu] = useState(false);
+
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const sendMessage = async () => {
+    const trimmed = input.trim();
+
+    if (!trimmed || loading) return;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "user",
+        content: trimmed,
+      },
+    ]);
+
+    setInput("");
+    setLoading(true);
+
+    /*
+      Foundation response only.
+      Actual AI backend integration will be added
+      in the next AI implementation commit.
+    */
+    setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "I am ready to help with Scheme Saathi. AI-backed scheme guidance will be connected in the next stage.",
+        },
+      ]);
+
+      setLoading(false);
+      inputRef.current?.focus();
+    }, 500);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const currentLanguage =
+    AI_LANGUAGES.find(
+      (language) => language.code === selectedLanguage,
+    )?.display || "English";
+
+  return (
+    <div className="flex h-screen flex-col bg-[#f4f8fb]">
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-[#dce4ea] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-[70px] max-w-[1200px] items-center justify-between px-6">
+
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm font-semibold text-[#53657b] transition hover:text-[#145c91]"
+          >
+            ←
+            <span>Back</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#eef7fb] text-[#145c91]">
+              <Bot size={18} />
+            </div>
+
+            <div>
+              <p className="font-serif text-[17px] font-bold tracking-wide text-[#172a43]">
+                SCHEME SAATHI
+              </p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#8090a0]">
+                AI Assistant
+              </p>
+            </div>
+          </div>
+
+          {/* Language selector */}
+          <div className="relative">
+
+            <button
+              onClick={() =>
+                setShowLangMenu((previous) => !previous)
+              }
+              className="flex items-center gap-2 rounded-lg border border-[#cfd8e3] bg-white px-3 py-2 text-[12px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb]"
+            >
+              <Globe2 size={14} />
+              <span className="hidden sm:inline">
+                {currentLanguage}
+              </span>
+              <ChevronDown size={12} />
+            </button>
+
+            {showLangMenu && (
+              <div className="absolute right-0 top-full z-50 mt-1 max-h-[320px] w-[220px] overflow-y-auto rounded-xl border border-[#d5e0e7] bg-white shadow-lg">
+
+                {AI_LANGUAGES.map((language) => (
+                  <button
+                    key={language.code}
+                    onClick={() => {
+                      setSelectedLanguage(language.code);
+                      setShowLangMenu(false);
+                    }}
+                    className={[
+                      "flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] transition hover:bg-[#f0f6fa]",
+                      selectedLanguage === language.code
+                        ? "bg-[#eef7fb] font-bold text-[#145c91]"
+                        : "text-[#34475d]",
+                    ].join(" ")}
+                  >
+                    {selectedLanguage === language.code && (
+                      <span className="text-[#145c91]">✓</span>
+                    )}
+
+                    <span>{language.display}</span>
+                  </button>
+                ))}
+
+              </div>
+            )}
+          </div>
+
+        </div>
+      </header>
+
+      {/* Chat */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+        <div className="mx-auto max-w-[800px] space-y-5">
+
+          {messages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={[
+                "flex gap-3",
+                message.role === "user"
+                  ? "justify-end"
+                  : "justify-start",
+              ].join(" ")}
+            >
+
+              {message.role === "assistant" && (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#145c91] text-white">
+                  <Bot size={18} />
+                </div>
+              )}
+
+              <div
+                className={[
+                  "max-w-[75%] rounded-2xl px-5 py-3.5 text-[14px] leading-6",
+                  message.role === "user"
+                    ? "rounded-br-md bg-[#145c91] text-white"
+                    : "rounded-bl-md border border-[#dce4ea] bg-white text-[#1e3048] shadow-sm",
+                ].join(" ")}
+              >
+                <div className="whitespace-pre-wrap">
+                  {message.content}
+                </div>
+              </div>
+
+              {message.role === "user" && (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8f3f8] text-[#145c91]">
+                  <UserRound size={18} />
+                </div>
+              )}
+
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#145c91] text-white">
+                <Bot size={18} />
+              </div>
+
+              <div className="flex items-center gap-2 rounded-2xl border border-[#dce4ea] bg-white px-5 py-3.5 shadow-sm">
+                <Loader2
+                  size={16}
+                  className="animate-spin text-[#145c91]"
+                />
+                <span className="text-[13px] text-[#718096]">
+                  Thinking...
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-[#dce4ea] bg-white px-4 py-4 sm:px-6">
+        <div className="mx-auto max-w-[800px]">
+
+          <div className="flex items-end gap-3 rounded-2xl border border-[#ced9e1] bg-white p-2 shadow-sm focus-within:border-[#1769a8] focus-within:ring-4 focus-within:ring-[#1769a8]/10">
+
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask about schemes, eligibility, EMI, partners..."
+              rows={1}
+              className="min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[14px] text-[#1e3048] outline-none placeholder:text-[#a1acb6]"
+            />
+
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || loading}
+              className={[
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition",
+                input.trim() && !loading
+                  ? "bg-[#145c91] text-white shadow-md hover:bg-[#104d7b]"
+                  : "bg-[#eef3f6] text-[#b6bec7]",
+              ].join(" ")}
+            >
+              {loading ? (
+                <Loader2
+                  size={18}
+                  className="animate-spin"
+                />
+              ) : (
+                <Send size={18} />
+              )}
+            </button>
+
+          </div>
+
+          <div className="mt-2 flex items-center justify-between px-1">
+            <p className="text-[10px] text-[#a1acb6]">
+              Scheme Saathi AI Assistant
+            </p>
+
+            <p className="text-[10px] text-[#a1acb6]">
+              Multilingual support
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  );
+}
 export default App;
