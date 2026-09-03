@@ -21,6 +21,7 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
+  Search,
 } from "lucide-react";
 
 /* =========================================================
@@ -28,6 +29,160 @@ import {
 ========================================================= */
 
 const API_BASE_URL = "http://127.0.0.1:8000";
+
+const SUPPORTED_LANGUAGES = [
+  { code: "en", display: "English" },
+  { code: "hi", display: "हिन्दी (Hindi)" },
+  { code: "bn", display: "বাংলা (Bengali)" },
+  { code: "ta", display: "தமிழ் (Tamil)" },
+  { code: "te", display: "తెలుగు (Telugu)" },
+  { code: "mr", display: "मराठी (Marathi)" },
+  { code: "gu", display: "ગુજરાતી (Gujarati)" },
+  { code: "kn", display: "ಕನ್ನಡ (Kannada)" },
+  { code: "ml", display: "മലയാളം (Malayalam)" },
+  { code: "pa", display: "ਪੰਜਾਬੀ (Punjabi)" },
+  { code: "or", display: "ଓଡ଼ିଆ (Odia)" },
+  { code: "as", display: "অসমীয়া (Assamese)" },
+  { code: "ur", display: "اردو (Urdu)" },
+  { code: "ne", display: "नेपाली (Nepali)" },
+  { code: "sa", display: "संस्कृत (Sanskrit)" },
+  { code: "mai", display: "मैथिली (Maithili)" },
+  { code: "sat", display: "ᱥᱟᱱᱛᱟᱲᱤ (Santali)" },
+  { code: "sd", display: "سنڌي (Sindhi)" },
+  { code: "brx", display: "बड़ो (Bodo)" },
+  { code: "doi", display: "डोगरी (Dogri)" },
+  { code: "ks", display: "कॉशुर (Kashmiri)" },
+  { code: "kok", display: "कोंकणी (Konkani)" },
+  { code: "mni", display: "মৈতৈলোন (Manipuri)" },
+];
+
+const AI_LANGUAGES = SUPPORTED_LANGUAGES;
+
+const UI_TRANSLATIONS = {
+  en: {
+    tagline: "Your Government Scheme Companion",
+    home: "Home",
+    exploreSchemes: "Explore Schemes",
+    calculator: "Calculator",
+    partnerLocator: "Partner Locator",
+    documents: "Documents",
+    trackApplication: "Track Application",
+    aiAssistant: "AI Assistant",
+    signIn: "Sign In",
+    logout: "Logout",
+    findMyScheme: "Find My Scheme",
+    heroTitle: "Find the right government scheme for your next step.",
+    heroSubtitle: "Discover suitable schemes, calculate loan details, and connect with the right partners — all in one place.",
+    viewMyRecommendations: "View My Recommendations",
+    openCalculator: "Open Calculator",
+  },
+  hi: {
+    tagline: "आपका सरकारी योजना साथी",
+    home: "होम",
+    exploreSchemes: "योजनाएं देखें",
+    calculator: "कैलकुलेटर",
+    partnerLocator: "पार्टनर लोकेटर",
+    documents: "दस्तावेज़",
+    trackApplication: "आवेदन ट्रैक करें",
+    aiAssistant: "एआई सहायक",
+    signIn: "साइन इन",
+    logout: "लॉग आउट",
+    findMyScheme: "मेरी योजना खोजें",
+    heroTitle: "अपने अगले कदम के लिए सही सरकारी योजना खोजें।",
+    heroSubtitle: "उपयुक्त योजनाएं खोजें, ऋण विवरण की गणना करें और सही भागीदारों से जुड़ें — सब एक ही स्थान पर।",
+    viewMyRecommendations: "मेरी सिफारिशें देखें",
+    openCalculator: "कैलकुलेटर खोलें",
+  },
+  bn: {
+    tagline: "আপনার সরকারি স্কিম সঙ্গী",
+    home: "হোম",
+    exploreSchemes: "স্কিম অন্বেষণ করুন",
+    calculator: "ক্যালকুলেটর",
+    partnerLocator: "পার্টনার লোকেটার",
+    documents: "নথিপত্র",
+    trackApplication: "আবেদন ট্র্যাক করুন",
+    aiAssistant: "এআই সহকারী",
+    signIn: "সাইন ইন",
+    logout: "লগ আউট",
+    findMyScheme: "আমার স্কিম খুঁজুন",
+    heroTitle: "আপনার পরবর্তী পদক্ষেপের জন্য সঠিক সরকারি স্কিম খুঁজুন।",
+    heroSubtitle: "উপযুক্ত স্কিম আবিষ্কার করুন, ঋণের বিবরণ গণনা করুন এবং সঠিক অংশীদারদের সাথে সংযোগ করুন — সবই এক জায়গায়।",
+    viewMyRecommendations: "আমার সুপারিশ দেখুন",
+    openCalculator: "ক্যালকুলেটর খুলুন",
+  },
+  ta: {
+    tagline: "உங்கள் அரசு திட்டத் தோழன்",
+    home: "முகப்பு",
+    exploreSchemes: "திட்டங்களை ஆராயுங்கள்",
+    calculator: "கணிப்பான்",
+    partnerLocator: "பங்குதாரர் கண்டறிப்பான்",
+    documents: "ஆவணங்கள்",
+    trackApplication: "விண்ணப்பத்தைக் கண்காணிக்கவும்",
+    aiAssistant: "AI உதவியாளர்",
+    signIn: "உள்நுழைக",
+    logout: "வெளியேறு",
+    findMyScheme: "என் திட்டத்தைக் கண்டுபிடி",
+    heroTitle: "உங்கள் அடுத்த கட்டத்திற்கான சரியான அரசு திட்டத்தைக் கண்டறியவும்.",
+    heroSubtitle: "பொருத்தமான திட்டங்களைக் கண்டறியவும், கடன் விவரங்களைக் கணக்கிடவும், சரியான கூட்டாளர்களுடன் இணையவும் — அனைத்தும் ஒரே இடத்தில்.",
+    viewMyRecommendations: "என் பரிந்துரைகளைக் காண்க",
+    openCalculator: "கணிப்பானைத் திறக்கவும்",
+  },
+  te: {
+    tagline: "మీ ప్రభుత్వ పథకాల సహచరుడు",
+    home: "హోమ్",
+    exploreSchemes: "పథకాలను అన్వేషించండి",
+    calculator: "కాలిక్యులేటర్",
+    partnerLocator: "భాగస్వామి లొకేటర్",
+    documents: "పత్రాలు",
+    trackApplication: "దరఖాస్తును ట్రాక్ చేయండి",
+    aiAssistant: "AI సహాయకుడు",
+    signIn: "సైన్ ఇన్",
+    logout: "లాగ్ అవుట్",
+    findMyScheme: "నా పథకాన్ని కనుగొనండి",
+    heroTitle: "మీ తదుపరి అడుగు కోసం సరైన ప్రభుత్వ పథకాన్ని కనుగొనండి.",
+    heroSubtitle: "తగిన పథకాలను కనుగొనండి, రుణ వివరాలను లెక్కించండి మరియు సరైన భాగస్వాములతో కనెక్ట్ అవ్వండి — అన్నీ ఒకే చోట.",
+    viewMyRecommendations: "నా సిఫార్సులను వీక్షించండి",
+    openCalculator: "కాలిక్యులేటర్‌ను తెరవండి",
+  },
+  mr: {
+    tagline: "तुमचा सरकारी योजना साथीदार",
+    home: "मुख्यपृष्ठ",
+    exploreSchemes: "योजना शोधा",
+    calculator: "कॅल्क्युलेटर",
+    partnerLocator: "पार्टनर लोकेटर",
+    documents: "कागदपत्रे",
+    trackApplication: "अर्ज ट्रॅक करा",
+    aiAssistant: "एआय सहाय्यक",
+    signIn: "साइन इन करा",
+    logout: "बाहेर पडा",
+    findMyScheme: "माझी योजना शोधा",
+    heroTitle: "तुमच्या पुढच्या पावलासाठी योग्य सरकारी योजना शोधा.",
+    heroSubtitle: "योग्य योजना शोधा, कर्जाचा तपशील मोजा आणि योग्य भागीदारांशी जोडा — सर्व एकाच ठिकाणी.",
+    viewMyRecommendations: "माझ्या शिफारसी पहा",
+    openCalculator: "कॅल्क्युलेटर उघडा",
+  },
+  gu: {
+    tagline: "તમારો સરકારી યોજના સાથી",
+    home: "હોમ",
+    exploreSchemes: "યોજનાઓ શોધો",
+    calculator: "કેલ્ક્યુલેટર",
+    partnerLocator: "પાર્ટનર લોકેટર",
+    documents: "દસ્તાવેજો",
+    trackApplication: "અરજી ટ્રેક કરો",
+    aiAssistant: "AI સહાયક",
+    signIn: "સાઇન ઇન",
+    logout: "લૉગ આઉટ",
+    findMyScheme: "મારી યોજના શોધો",
+    heroTitle: "તમારા આગલા પગલા માટે યોગ્ય સરકારી યોજના શોધો.",
+    heroSubtitle: "યોગ્ય યોજનાઓ શોધો, લોનની વિગતોની ગણતરી કરો અને યોગ્ય ભાગીદારો સાથે જોડાઓ — બધું એક જ જગ્યાએ.",
+    viewMyRecommendations: "મારી ભલામણો જુઓ",
+    openCalculator: "કેલ્ક્યુલેટર ખોલો",
+  },
+};
+
+function t(key, lang = "en") {
+  return UI_TRANSLATIONS[lang]?.[key] || UI_TRANSLATIONS.en[key] || key;
+}
 
 /* =========================================================
    HELPERS
@@ -499,29 +654,74 @@ function MatchScoreRing({ score }) {
 ========================================================= */
 
 function App() {
-  const [view, setView] =
-    useState("home");
+  const [view, setView] = useState("home");
 
-  const [currentUser, setCurrentUser] =
-    useState(() => {
-      try {
-        const saved = localStorage.getItem("scheme_saathi_user");
-        return saved ? JSON.parse(saved) : null;
-      } catch {
-        return null;
-      }
-    });
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("scheme_saathi_user");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const [isLoggedIn, setIsLoggedIn] =
-    useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      const token = localStorage.getItem("scheme_saathi_token");
+      const user = localStorage.getItem("scheme_saathi_user");
+      return Boolean(token && user);
+    } catch {
+      return false;
+    }
+  });
 
-  
-  const [lastSchemeResults, setLastSchemeResults] =
-    useState(null);
+  const [currentLanguage, setCurrentLanguage] = useState(() => {
+    try {
+      return localStorage.getItem("scheme_saathi_lang") || "en";
+    } catch {
+      return "en";
+    }
+  });
 
-  const [lastSchemeFormData, setLastSchemeFormData] =
-    useState(null);
-const openSchemeFinder = () => {
+  const handleLanguageChange = (lang) => {
+    setCurrentLanguage(lang);
+    try {
+      localStorage.setItem("scheme_saathi_lang", lang);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  const [lastSchemeResults, setLastSchemeResults] = useState(() => {
+    try {
+      const saved = localStorage.getItem("scheme_saathi_last_results");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [lastSchemeFormData, setLastSchemeFormData] = useState(() => {
+    try {
+      const saved = localStorage.getItem("scheme_saathi_last_form");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleResultsReady = (results, formData) => {
+    setLastSchemeResults(results);
+    setLastSchemeFormData(formData);
+    try {
+      localStorage.setItem("scheme_saathi_last_results", JSON.stringify(results));
+      localStorage.setItem("scheme_saathi_last_form", JSON.stringify(formData));
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  const openSchemeFinder = () => {
     if (isLoggedIn) {
       setView("finder");
     } else {
@@ -538,10 +738,18 @@ const openSchemeFinder = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("scheme_saathi_token");
-    localStorage.removeItem("scheme_saathi_user");
+    try {
+      localStorage.removeItem("scheme_saathi_token");
+      localStorage.removeItem("scheme_saathi_user");
+      localStorage.removeItem("scheme_saathi_last_results");
+      localStorage.removeItem("scheme_saathi_last_form");
+    } catch {
+      // Ignore storage errors
+    }
     setCurrentUser(null);
     setIsLoggedIn(false);
+    setLastSchemeResults(null);
+    setLastSchemeFormData(null);
     setView("home");
   };
 
@@ -549,87 +757,80 @@ const openSchemeFinder = () => {
     <div className="min-h-screen bg-white text-[#10213f]">
       {view === "home" && (
         <LandingPage
-          onFindScheme={
-            openSchemeFinder
-          }
-          onExplore={() =>
-            setView("explore")
-          }
-          onLogin={() =>
-            setView("login")
-          }
-          isLoggedIn={
-            isLoggedIn
-          }
-          onLogout={
-            handleLogout
-          }
+          onFindScheme={openSchemeFinder}
+          onExplore={() => setView("explore")}
+          onLogin={() => setView("login")}
+          onNavigate={(nextView) => setView(nextView)}
+          isLoggedIn={isLoggedIn}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          lastSchemeResults={lastSchemeResults}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
         />
       )}
 
       {view === "explore" && (
         <ExploreSchemes
-          onBack={() =>
-            setView("home")
-          }
-          onLogin={() =>
-            setView("login")
-          }
-          isLoggedIn={
-            isLoggedIn
-          }
-          currentUser={
-            currentUser
-          }
-          onLogout={
-            handleLogout
-          }
+          onBack={() => setView("home")}
+          onLogin={() => setView("login")}
+          onFindScheme={openSchemeFinder}
+          isLoggedIn={isLoggedIn}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
       )}
 
       {view === "login" && (
         <AuthPage
           mode="login"
-          onBack={() =>
-            setView("home")
-          }
-          onLogin={
-            handleLogin
-          }
-          onSignup={() =>
-            setView("signup")
-          }
+          onBack={() => setView("home")}
+          onLogin={handleLogin}
+          onSignup={() => setView("signup")}
         />
       )}
 
       {view === "signup" && (
         <AuthPage
           mode="signup"
-          onBack={() =>
-            setView("home")
-          }
-          onLogin={() =>
-            setView("login")
-          }
-          onSignupSuccess={
-            handleLogin
-          }
+          onBack={() => setView("home")}
+          onLogin={handleLogin}
+          onSignupSuccess={handleLogin}
         />
       )}
 
       {view === "finder" && (
         <SchemeFinder
-          onBack={() =>
-            setView("home")
-          }
-          isLoggedIn={
-            isLoggedIn
-          }
-                  onResultsReady={(results, formData) => {
-            setLastSchemeResults(results);
-            setLastSchemeFormData(formData);
-          }}
-/>
+          onBack={() => setView("home")}
+          isLoggedIn={isLoggedIn}
+          initialResults={lastSchemeResults}
+          initialFormData={lastSchemeFormData}
+          onResultsReady={handleResultsReady}
+        />
+      )}
+
+      {view === "emi_calculator" && (
+        <EMICalculator
+          onBack={() => setView("home")}
+        />
+      )}
+
+      {view === "partner_locator" && (
+        <PartnerLocator
+          onBack={() => setView("home")}
+        />
+      )}
+
+      {view === "ai_assistant" && (
+        <AIAssistant
+          onBack={() => setView("home")}
+          onNavigate={(nextView) => setView(nextView)}
+          isLoggedIn={isLoggedIn}
+          currentUser={currentUser}
+          lastSchemeResults={lastSchemeResults}
+          lastSchemeFormData={lastSchemeFormData}
+          initialLanguage={currentLanguage}
+        />
       )}
     </div>
   );
@@ -646,7 +847,19 @@ function LandingPage({
   onNavigate,
   isLoggedIn,
   onLogout,
+  currentUser,
+  lastSchemeResults,
+  currentLanguage = "en",
+  onLanguageChange,
 }) {
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const activeLangObj =
+    SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage) ||
+    SUPPORTED_LANGUAGES[0];
+
+  const topScheme = lastSchemeResults?.primary?.eligible?.[0] || null;
+  const matchScore = topScheme?.match_score ?? null;
+
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-[#dce4ec] bg-white/95 backdrop-blur">
@@ -676,7 +889,7 @@ function LandingPage({
               </h1>
 
               <p className="mt-1 text-[12px] font-medium text-[#61738d]">
-                Your Government Scheme Companion
+                {t("tagline", currentLanguage)}
               </p>
             </div>
           </button>
@@ -692,7 +905,7 @@ function LandingPage({
               }
               className="relative py-3 text-[14px] font-medium text-[#17243b]"
             >
-              Home
+              {t("home", currentLanguage)}
 
               <span className="absolute bottom-0 left-1/2 h-[2px] w-8 -translate-x-1/2 bg-[#c6a56b]" />
             </button>
@@ -701,34 +914,28 @@ function LandingPage({
               onClick={onExplore}
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
-              Explore Schemes
+              {t("exploreSchemes", currentLanguage)}
             </button>
 
             <button
-              onClick={() =>
-                document
-                  .getElementById(
-                    "calculator",
-                  )
-                  ?.scrollIntoView({
-                    behavior:
-                      "smooth",
-                  })
-              }
+              onClick={() => {
+                const el = document.getElementById("calculator");
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth" });
+                } else if (onNavigate) {
+                  onNavigate("emi_calculator");
+                }
+              }}
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
-              Calculator
+              {t("calculator", currentLanguage)}
             </button>
 
             <button
-              onClick={() =>
-                alert(
-                  "Partner Locator will be connected to the GIS backend in the next development phase.",
-                )
-              }
+              onClick={() => onNavigate?.("partner_locator")}
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
-              Partner Locator
+              {t("partnerLocator", currentLanguage)}
             </button>
 
             <button
@@ -739,7 +946,7 @@ function LandingPage({
               }
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
-              Documents
+              {t("documents", currentLanguage)}
             </button>
 
             <button
@@ -750,28 +957,53 @@ function LandingPage({
               }
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
-              Track Application
+              {t("trackApplication", currentLanguage)}
             </button>
 
             <button
-              onClick={() =>
-                alert(
-                  "AI Assistant will be connected after the AI backend layer is implemented.",
-                )
-              }
+              onClick={() => onNavigate?.("ai_assistant")}
               className="text-[14px] font-medium text-[#17243b] transition hover:text-[#1769a8]"
             >
-              AI Assistant
+              {t("aiAssistant", currentLanguage)}
             </button>
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="hidden items-center gap-2 rounded-lg border border-[#cfd8e3] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb] md:flex">
-              ENGLISH
-              <ChevronDown
-                size={14}
-              />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowLangMenu((prev) => !prev)}
+                className="hidden items-center gap-2 rounded-lg border border-[#cfd8e3] bg-white px-3.5 py-2.5 text-[13px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb] md:flex"
+              >
+                <Globe2 size={15} />
+                <span>{activeLangObj?.display || "English"}</span>
+                <ChevronDown size={14} />
+              </button>
+
+              {showLangMenu && (
+                <div className="absolute right-0 top-full z-50 mt-1 max-h-[320px] w-[240px] overflow-y-auto rounded-xl border border-[#d5e0e7] bg-white shadow-xl">
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        onLanguageChange?.(lang.code);
+                        setShowLangMenu(false);
+                      }}
+                      className={[
+                        "flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] transition hover:bg-[#f0f6fa]",
+                        currentLanguage === lang.code
+                          ? "bg-[#eef7fb] font-bold text-[#145c91]"
+                          : "text-[#34475d]",
+                      ].join(" ")}
+                    >
+                      {currentLanguage === lang.code && (
+                        <span className="text-[#145c91] font-bold">✓</span>
+                      )}
+                      <span>{lang.display}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {isLoggedIn ? (
               <div className="flex items-center gap-2">
@@ -785,7 +1017,7 @@ function LandingPage({
                   onClick={onLogout}
                   className="rounded-lg border border-[#cfd8e3] px-3.5 py-2 text-[13px] font-semibold text-[#52677d] transition hover:bg-[#f5f8fb] hover:text-[#c53030]"
                 >
-                  Logout
+                  {t("logout", currentLanguage)}
                 </button>
               </div>
             ) : (
@@ -796,7 +1028,7 @@ function LandingPage({
                 <LogIn
                   size={15}
                 />
-                Sign In
+                {t("signIn", currentLanguage)}
               </button>
             )}
           </div>
@@ -939,11 +1171,11 @@ function LandingPage({
                       </p>
 
                       <MatchScoreDisplay
-                        score={null}
+                        score={matchScore}
                       />
 
                       <MatchScoreRing
-                        score={null}
+                        score={matchScore}
                       />
                     </div>
 
@@ -999,11 +1231,11 @@ function LandingPage({
                       </p>
 
                       <h3 className="mt-1 font-serif text-[21px] font-bold text-[#17263b]">
-                        Based on your profile
+                        {topScheme?.scheme_name || topScheme?.name || "Based on your profile"}
                       </h3>
 
                       <p className="mt-1 text-[10px] text-[#65758a]">
-                        Live recommendation from backend
+                        {topScheme ? "Personalized recommendation" : "Live recommendation from backend"}
                       </p>
                     </div>
 
@@ -1013,7 +1245,7 @@ function LandingPage({
                       </p>
 
                       <p className="mt-1 font-bold text-[#17263b]">
-                        Applicable
+                        {topScheme?.max_loan_display || topScheme?.financial_terms?.max_loan || "Applicable"}
                       </p>
                     </div>
 
@@ -1023,7 +1255,7 @@ function LandingPage({
                       </p>
 
                       <p className="mt-1 font-bold text-[#17263b]">
-                        Applicable
+                        {topScheme?.interest_rate_display || (topScheme?.financial_terms?.interest_rate ? `${topScheme.financial_terms.interest_rate}% p.a.` : "Applicable")}
                       </p>
                     </div>
                   </div>
@@ -1035,7 +1267,7 @@ function LandingPage({
                   }
                   className="mt-4 flex w-full items-center justify-center gap-3 rounded-lg bg-[#3ca1d0] py-3.5 text-[14px] font-bold text-white transition hover:bg-[#288dbb]"
                 >
-                  View My Recommendation
+                  {t("viewMyRecommendations", currentLanguage)}
                   <ArrowRight
                     size={18}
                   />
@@ -1201,7 +1433,7 @@ function LandingPage({
                 }
                 className="flex shrink-0 items-center gap-2 rounded-lg bg-[#145c91] px-6 py-3.5 font-semibold text-white transition hover:bg-[#104d7b]"
               >
-                Open Calculator
+                {t("openCalculator", currentLanguage)}
                 <ArrowRight
                   size={18}
                 />
@@ -1441,6 +1673,10 @@ const PRIMARY_SCHEMES = [
 function ExploreSchemes({
   onBack,
   onLogin,
+  onFindScheme,
+  isLoggedIn,
+  currentUser,
+  onLogout,
 }) {
   return (
     <div className="min-h-screen bg-[#f5f9fc]">
@@ -1470,9 +1706,34 @@ function ExploreSchemes({
             </p>
           </div>
 
-          <span className="hidden text-xs font-semibold text-[#718096] sm:block">
-            Public Scheme Explorer
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs font-semibold text-[#718096] sm:block">
+              Public Scheme Explorer
+            </span>
+
+            {isLoggedIn ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded-lg bg-[#eef7fb] px-3.5 py-1.5 text-[12px] font-semibold text-[#145c91]">
+                  <UserRound size={14} />
+                  <span>{currentUser?.name || "Account"}</span>
+                </div>
+                <button
+                  onClick={onLogout}
+                  className="rounded-lg border border-[#cfd8e3] px-3 py-1.5 text-[12px] font-semibold text-[#52677d] transition hover:bg-[#f5f8fb] hover:text-[#c53030]"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onLogin}
+                className="flex items-center gap-1.5 rounded-lg border border-[#cfd8e3] px-3.5 py-1.5 text-[12px] font-semibold text-[#24344e] transition hover:bg-[#f5f8fb]"
+              >
+                <LogIn size={14} />
+                Sign In
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1602,15 +1863,17 @@ function ExploreSchemes({
               </p>
 
               <h2 className="mt-2 font-serif text-2xl font-bold text-[#1c334c]">
-                Sign in to find schemes matched to your profile.
+                {isLoggedIn
+                  ? "Find schemes matched to your personal profile."
+                  : "Sign in to find schemes matched to your profile."}
               </h2>
             </div>
 
             <button
-              onClick={onLogin}
+              onClick={isLoggedIn ? onFindScheme : onLogin}
               className="flex items-center gap-2 rounded-lg bg-[#145c91] px-6 py-3.5 font-semibold text-white transition hover:bg-[#104d7b]"
             >
-              Sign In & Continue
+              {isLoggedIn ? "Find My Scheme" : "Sign In & Continue"}
               <ArrowRight
                 size={18}
               />
@@ -1766,7 +2029,7 @@ function AuthPage({
         } else if (onLogin) {
           onLogin(data.user);
         }
-      } catch (err) {
+      } catch {
         setError(
           "Unable to connect to server. Please verify the backend is running.",
         );
@@ -1834,7 +2097,7 @@ function AuthPage({
       if (onLogin) {
         onLogin(data.user);
       }
-    } catch (err) {
+    } catch {
       setError(
         "Unable to connect to server. Please verify the backend is running.",
       );
@@ -2219,12 +2482,15 @@ function AuthPage({
 function SchemeFinder({
   onBack,
   isLoggedIn,
+  initialResults,
+  initialFormData,
+  onResultsReady,
 }) {
   const [step, setStep] =
     useState(1);
 
   const [formData, setFormData] =
-    useState({
+    useState(() => initialFormData || {
       fullName: "",
       age: "",
       gender: "",
@@ -2248,7 +2514,7 @@ function SchemeFinder({
     });
 
   const [results, setResults] =
-    useState(null);
+    useState(() => initialResults || null);
 
   const [loading, setLoading] =
     useState(false);
@@ -3401,49 +3667,71 @@ function StepOne({
   const [locationError, setLocationError] = useState("");
 
   useEffect(() => {
+    let active = true;
+
+    const fetchStates = async () => {
+      setLocationLoading(true);
+      setLocationError("");
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/locations/states`);
+        if (!response.ok) throw new Error("Failed to fetch states");
+        const data = await response.json();
+        if (active) {
+          setStatesList(data.states || []);
+        }
+      } catch {
+        if (active) {
+          setLocationError("Failed to load states. Please refresh the page.");
+          setStatesList([]);
+        }
+      } finally {
+        if (active) {
+          setLocationLoading(false);
+        }
+      }
+    };
+
     fetchStates();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (formData.state) {
-      fetchDistricts(formData.state);
-    } else {
-      setDistrictsList([]);
-    }
+    if (!formData.state) return;
+    let active = true;
+
+    const fetchDistricts = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/locations/states/${encodeURIComponent(formData.state)}/districts`,
+        );
+        if (!response.ok) throw new Error("Failed to fetch districts");
+        const data = await response.json();
+        if (active) {
+          setDistrictsList(data.districts || []);
+        }
+      } catch {
+        if (active) {
+          setDistrictsList([]);
+        }
+      }
+    };
+
+    fetchDistricts();
+
+    return () => {
+      active = false;
+    };
   }, [formData.state]);
-
-  const fetchStates = async () => {
-    setLocationLoading(true);
-    setLocationError("");
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/locations/states`);
-      if (!response.ok) throw new Error("Failed to fetch states");
-      const data = await response.json();
-      setStatesList(data.states || []);
-    } catch (err) {
-      setLocationError("Failed to load states. Please refresh the page.");
-      setStatesList([]);
-    } finally {
-      setLocationLoading(false);
-    }
-  };
-
-  const fetchDistricts = async (state) => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/locations/states/${encodeURIComponent(state)}/districts`,
-      );
-      if (!response.ok) throw new Error("Failed to fetch districts");
-      const data = await response.json();
-      setDistrictsList(data.districts || []);
-    } catch (err) {
-      setDistrictsList([]);
-    }
-  };
 
   const handleStateChange = (value) => {
     updateField("state", value);
     updateField("district", "");
+    if (!value) {
+      setDistrictsList([]);
+    }
   };
   return (
     <div>
@@ -4519,22 +4807,26 @@ function SelectField({
   value,
   onChange,
   options,
+  disabled = false,
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[13px] font-bold text-[#2c4058]">
-        {label}
-      </span>
+      {label ? (
+        <span className="mb-2 block text-[13px] font-bold text-[#2c4058]">
+          {label}
+        </span>
+      ) : null}
 
       <div className="relative">
         <select
           value={value}
+          disabled={disabled}
           onChange={(event) =>
             onChange(
               event.target.value,
             )
           }
-          className="w-full appearance-none rounded-lg border border-[#ced9e1] bg-white px-4 py-3.5 pr-10 text-sm text-[#21364f] outline-none transition focus:border-[#1769a8] focus:ring-4 focus:ring-[#1769a8]/10"
+          className="w-full appearance-none rounded-lg border border-[#ced9e1] bg-white px-4 py-3.5 pr-10 text-sm text-[#21364f] outline-none transition focus:border-[#1769a8] focus:ring-4 focus:ring-[#1769a8]/10 disabled:bg-[#f1f5f9] disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <option value="">
             Select an option
@@ -5079,19 +5371,6 @@ function AuthBenefit({
         </p>
       </div>
     </div>
-
-      {view === "emi_calculator" && (
-        <EMICalculator
-          onBack={() => setView("home")}
-        />
-      )}
-
-      {view === "partner_locator" && (
-        <PartnerLocator
-          onBack={() => setView("home")}
-        />
-      )}
-
   );
 }
 
@@ -5324,45 +5603,69 @@ function PartnerLocator({ onBack }) {
   const [locationLoading, setLocationLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
+    const fetchStates = async () => {
+      setLocationLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/locations/states`);
+        if (!response.ok) throw new Error("Failed to fetch states");
+        const data = await response.json();
+        if (active) {
+          setStatesList(data.states || []);
+        }
+      } catch {
+        if (active) {
+          setStatesList([]);
+        }
+      } finally {
+        if (active) {
+          setLocationLoading(false);
+        }
+      }
+    };
+
     fetchStates();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (state) {
-      fetchDistricts(state);
-    } else {
-      setDistrictsList([]);
-    }
+    if (!state) return;
+    let active = true;
+
+    const fetchDistricts = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/locations/states/${encodeURIComponent(state)}/districts`,
+        );
+        if (!response.ok) throw new Error("Failed to fetch districts");
+        const data = await response.json();
+        if (active) {
+          setDistrictsList(data.districts || []);
+        }
+      } catch {
+        if (active) {
+          setDistrictsList([]);
+        }
+      }
+    };
+
+    fetchDistricts();
+
+    return () => {
+      active = false;
+    };
   }, [state]);
-
-  const fetchStates = async () => {
-    setLocationLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/locations/states`);
-      if (!response.ok) throw new Error("Failed to fetch states");
-      const data = await response.json();
-      setStatesList(data.states || []);
-    } catch {
-      setStatesList([]);
-    } finally {
-      setLocationLoading(false);
-    }
-  };
-
-  const fetchDistricts = async (selectedState) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/locations/states/${encodeURIComponent(selectedState)}/districts`);
-      if (!response.ok) throw new Error("Failed to fetch districts");
-      const data = await response.json();
-      setDistrictsList(data.districts || []);
-    } catch {
-      setDistrictsList([]);
-    }
-  };
 
   const handleStateChange = (value) => {
     setState(value);
     setDistrict("");
+    if (!value) {
+      setDistrictsList([]);
+    }
   };
 
   const search = async () => {
@@ -5621,57 +5924,21 @@ function PartnerLocator({ onBack }) {
         )}
       </main>
     </div>
-
-      {view === "ai_assistant" && (
-        <AIAssistant
-          onBack={() => setView("home")}
-          isLoggedIn={isLoggedIn}
-          currentUser={currentUser}
-          lastSchemeResults={lastSchemeResults}
-          lastSchemeFormData={lastSchemeFormData}
-        />
-      )}
-
   );
 }
-
 
 /* =========================================================
    AI ASSISTANT FOUNDATION
 ========================================================= */
 
-const AI_LANGUAGES = [
-  { code: "en", display: "English" },
-  { code: "hi", display: "हिन्दी (Hindi)" },
-  { code: "bn", display: "বাংলা (Bengali)" },
-  { code: "ta", display: "தமிழ் (Tamil)" },
-  { code: "te", display: "తెలుగు (Telugu)" },
-  { code: "mr", display: "मराठी (Marathi)" },
-  { code: "gu", display: "ગુજરાતી (Gujarati)" },
-  { code: "kn", display: "ಕನ್ನಡ (Kannada)" },
-  { code: "ml", display: "മലയാളം (Malayalam)" },
-  { code: "pa", display: "ਪੰਜਾਬੀ (Punjabi)" },
-  { code: "or", display: "ଓଡ଼ିଆ (Odia)" },
-  { code: "as", display: "অসমীয়া (Assamese)" },
-  { code: "ur", display: "اردو (Urdu)" },
-  { code: "ne", display: "नेपाली (Nepali)" },
-  { code: "sa", display: "संस्कृत (Sanskrit)" },
-  { code: "mai", display: "मैथिली (Maithili)" },
-  { code: "sat", display: "ᱥᱟᱱᱛᱟᱲᱤ (Santali)" },
-  { code: "sd", display: "سنڌي (Sindhi)" },
-  { code: "brx", display: "बड़ो (Bodo)" },
-  { code: "doi", display: "डोगरी (Dogri)" },
-  { code: "ks", display: "कॉशुर (Kashmiri)" },
-  { code: "kok", display: "कोंकणी (Konkani)" },
-  { code: "mni", display: "মৈতৈলোন (Manipuri)" },
-];
-
 function AIAssistant({
   onBack,
+  onNavigate,
   isLoggedIn,
   currentUser,
   lastSchemeResults,
   lastSchemeFormData,
+  initialLanguage = "en",
 }) {
   const detectNavigationFromText = (responseText) => {
     if (!responseText) return null;
@@ -5904,7 +6171,10 @@ function AIAssistant({
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [error, setError] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState(
+    initialLanguage || "en",
+  );
   const [showLangMenu, setShowLangMenu] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -5925,6 +6195,7 @@ function AIAssistant({
 
     if (!trimmed || loading) return;
 
+    setError("");
     setMessages((prev) => [
       ...prev,
       {
